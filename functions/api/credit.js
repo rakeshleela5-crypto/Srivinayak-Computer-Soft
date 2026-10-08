@@ -82,6 +82,27 @@ export async function onRequestPost(context) {
           WHERE customer_id = ?
         `).bind(Number(amount), customerId).run();
 
+        // Also log in customer_payments table
+        const cust = await env.DB.prepare("SELECT company_name FROM credit_accounts WHERE customer_id = ?").bind(customerId).first();
+        const custName = cust ? cust.company_name : "Fleet Transporter";
+        await env.DB.prepare(`
+          INSERT INTO customer_payments (
+            payment_id, receipt_no, customer_id, customer_name, payment_date,
+            amount, payment_mode, reference_no, discount_allowed, tds_amount,
+            net_credited, status, notes
+          ) VALUES (?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, 0.0, 0.0, ?, 'CLEARED', ?)
+        `).bind(
+          receiptId,
+          referenceNo || receiptId,
+          customerId,
+          custName,
+          Number(amount),
+          paymentMode,
+          referenceNo || null,
+          Number(amount),
+          notes || 'Payment received'
+        ).run();
+
         // Also log payment in bank_deposits as cleared settlement
         await env.DB.prepare(`
           INSERT INTO bank_deposits (deposit_id, date, bank_name, account_no, amount, deposited_by, challan_no, status)
@@ -147,6 +168,8 @@ export async function onRequestPost(context) {
         companyName,
         contactPerson = '',
         phone,
+        email = '',
+        remarks = '',
         address = '',
         city = 'Bangalore',
         state = 'Karnataka',
@@ -172,13 +195,15 @@ export async function onRequestPost(context) {
       if (env.DB) {
         await env.DB.prepare(`
           INSERT INTO credit_accounts (
-            customer_id, customer_code, company_name, contact_person, phone, address, city, state,
+            customer_id, customer_code, company_name, contact_person, phone, email, remarks, address, city, state,
             gstin, pan_no, ndc_required, is_b2c, tds_apply, is_tanker, is_blocked, bill_period,
             driver_pin, credit_limit, opening_balance, current_balance, discount_per_liter, charge_pct
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(customer_id) DO UPDATE SET
             company_name = excluded.company_name,
             phone = excluded.phone,
+            email = excluded.email,
+            remarks = excluded.remarks,
             address = excluded.address,
             city = excluded.city,
             state = excluded.state,
@@ -196,7 +221,7 @@ export async function onRequestPost(context) {
             charge_pct = excluded.charge_pct
         `).bind(
           customerId, customerCode ? Number(customerCode) : Math.floor(Math.random() * 90) + 10,
-          companyName, contactPerson, phone, address, city, state,
+          companyName, contactPerson, phone, email, remarks, address, city, state,
           gstin, panNo, ndcRequired ? 1 : 0, isB2c ? 1 : 0, tdsApply ? 1 : 0,
           isTanker ? 1 : 0, isBlocked ? 1 : 0, billPeriod, driverPin,
           Number(creditLimit), Number(openingBalance), Number(openingBalance),

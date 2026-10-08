@@ -3,6 +3,11 @@
 -- Compliant with Petroleum Ministry, W&M, and OMC Guidelines (IOCL / BPCL / HPCL)
 
 -- Clean Migration: Drop existing tables to ensure complete column alignment
+DROP TABLE IF EXISTS lfr_recovery_register;
+DROP TABLE IF EXISTS section_194q_tds_register;
+DROP TABLE IF EXISTS attendant_handovers;
+DROP TABLE IF EXISTS customer_payments;
+DROP TABLE IF EXISTS bank_accounts;
 DROP TABLE IF EXISTS transfers;
 DROP TABLE IF EXISTS cheque_returns;
 DROP TABLE IF EXISTS stamping_register;
@@ -129,6 +134,13 @@ CREATE TABLE IF NOT EXISTS shifts (
   credit_issued REAL DEFAULT 0.0,
   driver_kharcha_disbursed REAL DEFAULT 0.0,
   expenses REAL DEFAULT 0.0,
+  testing_pourback_ltrs REAL DEFAULT 0.0,
+  lube_sales_amount REAL DEFAULT 0.0,
+  expected_cash REAL DEFAULT 0.0,
+  physical_cash REAL DEFAULT 0.0,
+  gap_of_account REAL DEFAULT 0.0,
+  manager_remarks TEXT,
+  is_frozen INTEGER DEFAULT 0,
   status TEXT DEFAULT 'ACTIVE' -- 'ACTIVE', 'CLOSED', 'HANDOVER_VERIFIED'
 );
 
@@ -136,6 +148,7 @@ CREATE TABLE IF NOT EXISTS shifts (
 CREATE TABLE IF NOT EXISTS shift_denominations (
   id TEXT PRIMARY KEY,
   shift_id TEXT NOT NULL,
+  d2000 INTEGER DEFAULT 0,
   d500 INTEGER DEFAULT 0,
   d200 INTEGER DEFAULT 0,
   d100 INTEGER DEFAULT 0,
@@ -192,6 +205,9 @@ CREATE TABLE IF NOT EXISTS transactions (
   driver_name TEXT,
   customer_vehicle TEXT DEFAULT 'WALK-IN',
   customer_name TEXT DEFAULT 'Retail Customer',
+  customer_phone TEXT DEFAULT 'N/A',
+  manager_override INTEGER DEFAULT 0,
+  balance_after_txn REAL DEFAULT 0.0,
   attendant TEXT,
   status TEXT DEFAULT 'COMPLETED',
   sync_status TEXT DEFAULT 'SYNCED',
@@ -255,6 +271,8 @@ CREATE TABLE IF NOT EXISTS credit_accounts (
   company_name TEXT NOT NULL,
   contact_person TEXT,
   phone TEXT,
+  email TEXT,
+  remarks TEXT,
   address TEXT,
   city TEXT DEFAULT 'Bangalore',
   state TEXT DEFAULT 'Karnataka',
@@ -513,13 +531,17 @@ CREATE TABLE IF NOT EXISTS stamping_register (
   id TEXT PRIMARY KEY,
   nozzle_id TEXT NOT NULL,
   nozzle_name TEXT NOT NULL,
+  dispenser_id TEXT DEFAULT 'MPD-01',
   dispenser_name TEXT NOT NULL,
+  product TEXT DEFAULT 'MS (Petrol)',
   last_stamped_date DATE NOT NULL,
   expiry_date DATE NOT NULL,
   days_left INTEGER,
   certificate_no TEXT,
+  seal_serial TEXT,
   inspector_name TEXT,
-  status TEXT DEFAULT 'VALID'
+  status TEXT DEFAULT 'VALID',
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 29. Physical Tank Dip & OMC Loss Tolerance Register
@@ -556,6 +578,108 @@ CREATE TABLE IF NOT EXISTS staff_advances (
   status TEXT DEFAULT 'PENDING'
 );
 
+-- 31. Master Bank & Cash Accounts (Contra Ledgers)
+CREATE TABLE IF NOT EXISTS bank_accounts (
+  account_id TEXT PRIMARY KEY,
+  account_name TEXT NOT NULL,
+  account_type TEXT NOT NULL, -- 'CASH', 'CURRENT', 'OVERDRAFT', 'UPI_SETTLEMENT'
+  account_number TEXT NOT NULL,
+  bank_name TEXT,
+  branch_ifsc TEXT,
+  opening_balance REAL DEFAULT 0.0,
+  current_balance REAL DEFAULT 0.0,
+  balance_type TEXT DEFAULT 'Dr', -- 'Dr' or 'Cr'
+  od_limit REAL DEFAULT 0.0,
+  is_active INTEGER DEFAULT 1,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 32. Dedicated Customer Payment & Cheque Collection Book
+CREATE TABLE IF NOT EXISTS customer_payments (
+  payment_id TEXT PRIMARY KEY,
+  receipt_no TEXT UNIQUE NOT NULL,
+  customer_id TEXT NOT NULL,
+  customer_name TEXT NOT NULL,
+  payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  amount REAL NOT NULL,
+  payment_mode TEXT NOT NULL, -- 'CASH', 'CHEQUE', 'NEFT', 'RTGS', 'UPI'
+  bank_account_id TEXT,
+  cheque_no TEXT,
+  cheque_date DATE,
+  bank_name TEXT,
+  branch_name TEXT,
+  reference_no TEXT,
+  discount_allowed REAL DEFAULT 0.0,
+  tds_amount REAL DEFAULT 0.0, -- Section 194Q / 0.1%
+  net_credited REAL NOT NULL,
+  status TEXT DEFAULT 'CLEARED', -- 'CLEARED', 'BOUNCED', 'PENDING'
+  notes TEXT,
+  recorded_by TEXT DEFAULT 'Manager',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES credit_accounts(customer_id)
+);
+
+-- 33. Machine-Wise Attendant Shift Handover Vouchers (FrmLi)
+CREATE TABLE IF NOT EXISTS attendant_handovers (
+  id TEXT PRIMARY KEY,
+  voucher_no TEXT UNIQUE NOT NULL,
+  handover_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  shift_period TEXT NOT NULL,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT NOT NULL,
+  dispenser_machine TEXT NOT NULL, -- 'MPD-01 (Island 1)', 'MPD-02 (Island 2)'
+  fuel_amount REAL DEFAULT 0.0,
+  lube_amount REAL DEFAULT 0.0,
+  gross_duty REAL NOT NULL,
+  credit_slips_amount REAL DEFAULT 0.0,
+  card_slips_amount REAL DEFAULT 0.0,
+  staff_advance_upaad REAL DEFAULT 0.0,
+  expected_cash REAL NOT NULL,
+  physical_cash REAL NOT NULL,
+  cash_variance REAL DEFAULT 0.0, -- Negative = Shortage, Positive = Surplus
+  notes TEXT,
+  status TEXT DEFAULT 'VERIFIED',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (staff_id) REFERENCES staff(staff_id)
+);
+
+-- 34. Section 194Q Statutory TDS Register (0.1% on OMC Purchases > ₹50L)
+CREATE TABLE IF NOT EXISTS section_194q_tds_register (
+  id TEXT PRIMARY KEY,
+  fy_year TEXT DEFAULT '2026-27',
+  supplier_name TEXT DEFAULT 'INDIAN OIL CORPORATION LTD',
+  pan_no TEXT DEFAULT 'AAACI1681G',
+  invoice_no TEXT NOT NULL,
+  invoice_date DATE NOT NULL,
+  basic_purchase_value REAL NOT NULL,
+  cumulative_purchase_ytd REAL NOT NULL,
+  threshold_exceeded INTEGER DEFAULT 1,
+  tds_rate_pct REAL DEFAULT 0.1,
+  tds_deducted REAL NOT NULL,
+  challan_bsr_code TEXT,
+  challan_date DATE,
+  status TEXT DEFAULT 'DEDUCTED',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 35. License Fee Recovery (LFR) Register with 10% TDS Deduction
+CREATE TABLE IF NOT EXISTS lfr_recovery_register (
+  id TEXT PRIMARY KEY,
+  invoice_no TEXT NOT NULL,
+  month_year TEXT NOT NULL,
+  product_code TEXT NOT NULL, -- 'MS', 'HSD'
+  volume_kl REAL NOT NULL,
+  lfr_rate_per_kl REAL NOT NULL,
+  basic_lfr REAL NOT NULL,
+  cgst_9pct REAL NOT NULL,
+  sgst_9pct REAL NOT NULL,
+  total_lfr_with_gst REAL NOT NULL,
+  tds_10pct_on_basic REAL NOT NULL,
+  net_lfr_payable REAL NOT NULL,
+  status TEXT DEFAULT 'POSTED',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Performance Indices for Real-Time Edge Routing
 CREATE INDEX IF NOT EXISTS idx_txn_shift ON transactions(shift_id);
 CREATE INDEX IF NOT EXISTS idx_txn_nozzle ON transactions(nozzle_id);
@@ -568,3 +692,9 @@ CREATE INDEX IF NOT EXISTS idx_indents_plate ON digital_indents(vehicle_plate);
 CREATE INDEX IF NOT EXISTS idx_density_tank_date ON morning_density_logs(tank_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_bank_deposits_date ON bank_deposits(date);
+CREATE INDEX IF NOT EXISTS idx_cust_pay_customer ON customer_payments(customer_id);
+CREATE INDEX IF NOT EXISTS idx_attendant_handover_staff ON attendant_handovers(staff_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_date ON transfers(date);
+CREATE INDEX IF NOT EXISTS idx_tds_194q_invoice ON section_194q_tds_register(invoice_no);
+CREATE INDEX IF NOT EXISTS idx_lfr_recovery_invoice ON lfr_recovery_register(invoice_no);
+
