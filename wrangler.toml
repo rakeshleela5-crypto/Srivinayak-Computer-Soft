@@ -1,4 +1,4 @@
-name = "shree-vinayaka-petrosoft-ai-shiva"
+name = "shree-vinayaka-petrosoft"
 compatibility_date = "2024-04-01"
 pages_build_output_dir = "dist"
 
@@ -6,8 +6,3 @@ pages_build_output_dir = "dist"
 STATION_NAME = "SHREE VINAYAKA PETROSOFT FUEL JUNCTION"
 RO_CODE = "IOCL-RO-849201"
 ENVIRONMENT = "production"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "petrosoft_edge_db"
-database_id = "petrosoft-d1-edge-database"
