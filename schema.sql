@@ -210,3 +210,57 @@ CREATE INDEX IF NOT EXISTS idx_loyalty_phone ON loyalty_customers(phone);
 CREATE INDEX IF NOT EXISTS idx_indents_fleet ON digital_indents(fleet_id);
 CREATE INDEX IF NOT EXISTS idx_indents_plate ON digital_indents(vehicle_plate);
 
+-- 06:00 AM Product Quality, Density & Dip Register (ASTM 53B Standard)
+CREATE TABLE IF NOT EXISTS morning_density_logs (
+  id TEXT PRIMARY KEY,
+  tank_id TEXT NOT NULL,
+  fuel_code TEXT NOT NULL,
+  log_date DATE NOT NULL,
+  log_time TEXT DEFAULT '06:00 AM',
+  observed_temp_c REAL NOT NULL,
+  observed_density REAL NOT NULL,
+  converted_density_15c REAL NOT NULL,
+  invoice_density_15c REAL NOT NULL,
+  density_variance REAL NOT NULL,
+  dip_mm REAL DEFAULT 0,
+  water_dip_mm REAL DEFAULT 0,
+  status TEXT DEFAULT 'WITHIN_TOLERANCE',
+  tested_by TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tank_id) REFERENCES tanks(tank_id)
+);
+CREATE INDEX IF NOT EXISTS idx_density_tank_date ON morning_density_logs(tank_id, log_date);
+
+-- Live Forecourt Operational Expenses & Overheads
+CREATE TABLE IF NOT EXISTS forecourt_expenses (
+  id TEXT PRIMARY KEY,
+  expense_date DATE NOT NULL,
+  category TEXT NOT NULL,
+  amount REAL NOT NULL,
+  paid_to TEXT NOT NULL,
+  approved_by TEXT NOT NULL,
+  receipt_voucher_no TEXT,
+  shift_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON forecourt_expenses(expense_date);
+
+-- Statutory Dealer Commission & Margins per Liter
+CREATE TABLE IF NOT EXISTS dealer_margins (
+  fuel_code TEXT PRIMARY KEY,
+  margin_per_unit REAL NOT NULL,
+  unit TEXT NOT NULL DEFAULT 'L',
+  effective_date DATE NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- OMC License Fee Recovery (LFR) Rates
+CREATE TABLE IF NOT EXISTS lfr_rates (
+  fuel_code TEXT PRIMARY KEY,
+  rate_per_kl REAL NOT NULL,
+  unit TEXT NOT NULL DEFAULT 'KL',
+  gst_percent REAL DEFAULT 18.0,
+  effective_date DATE NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+

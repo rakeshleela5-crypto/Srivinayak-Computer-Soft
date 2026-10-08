@@ -16,7 +16,10 @@ import {
   Droplet, 
   Sparkles,
   ArrowUpRight,
-  TrendingDown
+  TrendingDown,
+  PlusCircle,
+  Calendar,
+  Receipt
 } from 'lucide-react';
 import { calculateDealerProfitAndMargin } from '../utils/petroleumTaxEngine';
 
@@ -25,22 +28,38 @@ export default function DealerMarginView() {
     transactions, 
     dealerMargins, 
     updateDealerMargins,
-    stationInfo 
+    stationInfo,
+    forecourtExpenses,
+    recordExpense,
+    decantations
   } = useApp();
 
   const [editingMargins, setEditingMargins] = useState(false);
   const [tempMargins, setTempMargins] = useState({ ...dealerMargins });
-  
-  // Operational overheads state for the day
-  const [dailyExpenses, setDailyExpenses] = useState({
-    electricity: 1650,
-    wages: 2100,
-    posCharges: 420,
-    forecourtMaintenance: 350,
-    evaporationLossCost: 680
+  const [newExpenseModal, setNewExpenseModal] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({
+    category: 'Electricity & DG Backup',
+    amount: '',
+    paidTo: '',
+    approvedBy: 'Vijay Sharma (Manager)'
   });
 
-  const totalOverheads = Object.values(dailyExpenses).reduce((a, b) => a + b, 0);
+  // Dynamic Calculation of Overheads
+  // 1. Dynamic Card MDR Fees (0.20% on all card payments)
+  const cardTxnTotal = transactions
+    .filter(t => t.paymentMode === 'CARD')
+    .reduce((acc, t) => acc + (t.totalAmount || 0), 0);
+  const dynamicMdrFee = Math.round(cardTxnTotal * 0.0020);
+
+  // 2. Dynamic Evaporation & Transit Loss Cost (based on decantation shortage liters)
+  const decantationShortageLiters = decantations.reduce((acc, d) => acc + (d.shortageLiters || 0), 0);
+  const dynamicEvaporationCost = Math.round(decantationShortageLiters * 95) || 580;
+
+  // 3. Recorded Forecourt Expenses from live database
+  const recordedExpensesTotal = forecourtExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+
+  // Total Live Overheads
+  const totalOverheads = recordedExpensesTotal + dynamicMdrFee + dynamicEvaporationCost;
 
   // Compute live profit report
   const profitReport = calculateDealerProfitAndMargin(transactions, dealerMargins, totalOverheads);
@@ -49,6 +68,24 @@ export default function DealerMarginView() {
     e.preventDefault();
     updateDealerMargins(tempMargins);
     setEditingMargins(false);
+  };
+
+  const handleAddExpense = (e) => {
+    e.preventDefault();
+    if (!expenseForm.amount || parseFloat(expenseForm.amount) <= 0) return;
+    recordExpense({
+      category: expenseForm.category,
+      amount: parseFloat(expenseForm.amount),
+      paidTo: expenseForm.paidTo || 'Station Operational Vendor',
+      approvedBy: expenseForm.approvedBy
+    });
+    setExpenseForm({
+      category: 'Staff Tea & Snacks',
+      amount: '',
+      paidTo: '',
+      approvedBy: 'Vijay Sharma (Manager)'
+    });
+    setNewExpenseModal(false);
   };
 
   return (
@@ -66,22 +103,31 @@ export default function DealerMarginView() {
                 Per-Liter Dealer Margin & Daily Net Profit Engine
               </h2>
               <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>
-                OMC BENCHMARK MARGINS
+                OMC BENCHMARK MARGINS (LIVE)
               </span>
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-              Real-time Commission Tracking (₹/L) • Product Profitability • Overhead Deductions • Blended Unit Margin
+              Real-time Commission Tracking (₹/L) • Product Profitability • Live Forecourt Overheads • Blended Unit Margin
             </div>
           </div>
         </div>
 
-        <button
-          onClick={() => setEditingMargins(!editingMargins)}
-          className="btn-secondary"
-          style={{ fontSize: '0.82rem', borderColor: '#10b981', color: '#34d399' }}
-        >
-          <Edit3 size={15} /> {editingMargins ? 'Cancel Margin Edit' : 'Edit Statutory Margins'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setNewExpenseModal(true)}
+            className="btn-action-green"
+            style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+          >
+            <PlusCircle size={15} /> Record Operational Expense
+          </button>
+          <button
+            onClick={() => setEditingMargins(!editingMargins)}
+            className="btn-secondary"
+            style={{ fontSize: '0.82rem', borderColor: '#10b981', color: '#34d399' }}
+          >
+            <Edit3 size={15} /> {editingMargins ? 'Cancel Margin Edit' : 'Edit Statutory Margins'}
+          </button>
+        </div>
       </div>
 
       {/* Hero Metric Cards */}
@@ -104,11 +150,11 @@ export default function DealerMarginView() {
         </div>
 
         <div className="glass-card" style={{ padding: '18px', borderLeft: '4px solid #f87171' }}>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Daily Operating Expenses</div>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Live Operating Overheads</div>
           <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f87171', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
             -₹{totalOverheads.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>Power, Staff, EDC, Evap loss</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>Forecourt + MDR Fee + Evaporation</div>
         </div>
 
         <div className="glass-card" style={{ padding: '18px', borderLeft: '4px solid #34d399', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)' }}>
@@ -188,7 +234,7 @@ export default function DealerMarginView() {
       )}
 
       {/* Main Breakdown Grids */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 1.4fr) minmax(300px, 1fr)', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 1.3fr) minmax(320px, 1.1fr)', gap: '20px' }}>
         
         {/* Product Commission Ledger Table */}
         <div className="glass-card" style={{ padding: '22px' }}>
@@ -237,74 +283,55 @@ export default function DealerMarginView() {
 
         {/* Operational Deductions Tracker */}
         <div className="glass-card" style={{ padding: '22px' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f87171', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingDown size={18} color="#f87171" /> Daily Overhead Expenses (₹)
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f87171', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingDown size={18} color="#f87171" /> Live Overheads & Expenses (₹)
+            </h3>
+            <button
+              onClick={() => setNewExpenseModal(true)}
+              style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', color: '#f87171', padding: '4px 10px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}
+            >
+              + Add Expense
+            </button>
+          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            
+            {/* Dynamic System Overheads */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                <Zap size={14} color="#fbbf24" /> Electricity & DG Backup
+                <CreditCard size={14} color="#a78bfa" /> EDC Card Machine Fees (0.20% MDR)
               </div>
-              <input
-                type="number"
-                value={dailyExpenses.electricity}
-                onChange={(e) => setDailyExpenses({ ...dailyExpenses, electricity: parseFloat(e.target.value) || 0 })}
-                style={{ width: '90px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '4px 6px' }}
-              />
+              <strong style={{ fontFamily: 'var(--font-mono)', color: '#f87171' }}>
+                ₹{dynamicMdrFee.toLocaleString('en-IN')}
+              </strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                <Users size={14} color="#38bdf8" /> Attendant Wages & Shift Incentives
+                <Droplet size={14} color="#f87171" /> Evaporation & Handling Loss
               </div>
-              <input
-                type="number"
-                value={dailyExpenses.wages}
-                onChange={(e) => setDailyExpenses({ ...dailyExpenses, wages: parseFloat(e.target.value) || 0 })}
-                style={{ width: '90px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '4px 6px' }}
-              />
+              <strong style={{ fontFamily: 'var(--font-mono)', color: '#f87171' }}>
+                ₹{dynamicEvaporationCost.toLocaleString('en-IN')}
+              </strong>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                <CreditCard size={14} color="#a78bfa" /> EDC Card Machine Fees (MDR)
+            {/* Live Forecourt Expenses */}
+            {forecourtExpenses.map((exp) => (
+              <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{exp.category}</div>
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Paid to: {exp.paidTo} • {exp.date}</div>
+                </div>
+                <strong style={{ fontFamily: 'var(--font-mono)', color: '#f87171' }}>
+                  ₹{(exp.amount || 0).toLocaleString('en-IN')}
+                </strong>
               </div>
-              <input
-                type="number"
-                value={dailyExpenses.posCharges}
-                onChange={(e) => setDailyExpenses({ ...dailyExpenses, posCharges: parseFloat(e.target.value) || 0 })}
-                style={{ width: '90px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '4px 6px' }}
-              />
-            </div>
+            ))}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                <Droplet size={14} color="#f87171" /> Evaporation Loss Cost
-              </div>
-              <input
-                type="number"
-                value={dailyExpenses.evaporationLossCost}
-                onChange={(e) => setDailyExpenses({ ...dailyExpenses, evaporationLossCost: parseFloat(e.target.value) || 0 })}
-                style={{ width: '90px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '4px 6px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                <Sparkles size={14} color="#34d399" /> Forecourt Facilities & Free Air/Water
-              </div>
-              <input
-                type="number"
-                value={dailyExpenses.forecourtMaintenance}
-                onChange={(e) => setDailyExpenses({ ...dailyExpenses, forecourtMaintenance: parseFloat(e.target.value) || 0 })}
-                style={{ width: '90px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '4px 6px' }}
-              />
-            </div>
-
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>Total Daily Overheads:</span>
-              <strong style={{ fontSize: '1.1rem', color: '#f87171', fontFamily: 'var(--font-mono)' }}>
+              <strong style={{ fontSize: '1.15rem', color: '#f87171', fontFamily: 'var(--font-mono)' }}>
                 ₹{totalOverheads.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </strong>
             </div>
@@ -312,6 +339,105 @@ export default function DealerMarginView() {
         </div>
 
       </div>
+
+      {/* Record Expense Modal */}
+      {newExpenseModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#0f172a',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '460px',
+            padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+            color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Receipt size={20} color="#f87171" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>Record Forecourt Expense</h3>
+              </div>
+              <button onClick={() => setNewExpenseModal(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Expense Category</label>
+                <select
+                  value={expenseForm.category}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                >
+                  <option value="Electricity & DG Backup">Electricity & DG Backup</option>
+                  <option value="Attendant Wages & Shift Incentives">Attendant Wages & Shift Incentives</option>
+                  <option value="Forecourt Maintenance & Cleaning">Forecourt Maintenance & Cleaning</option>
+                  <option value="Staff Tea & Refreshments">Staff Tea & Refreshments</option>
+                  <option value="Drinking Water & Facility Sanitation">Drinking Water & Facility Sanitation</option>
+                  <option value="Printing Rolls & Office Stationery">Printing Rolls & Office Stationery</option>
+                  <option value="Miscellaneous Daily Petty Cash">Miscellaneous Daily Petty Cash</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Amount (₹)</label>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="e.g. 500"
+                  value={expenseForm.amount}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Paid To / Vendor Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. BESCOM / Local Store"
+                  value={expenseForm.paidTo}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, paidTo: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setNewExpenseModal(false)}
+                  style={{ padding: '8px 16px', background: '#334155', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '0.85rem', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-action-green"
+                  style={{ padding: '8px 20px', fontSize: '0.85rem', fontWeight: 700 }}
+                >
+                  Save & Deduct from Profit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

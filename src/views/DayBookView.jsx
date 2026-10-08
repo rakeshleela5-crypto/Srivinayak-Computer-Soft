@@ -16,7 +16,10 @@ import {
   Building2,
   BadgeAlert,
   Clock,
-  Sparkles
+  Sparkles,
+  Edit3,
+  X,
+  Plus
 } from 'lucide-react';
 import { calculateDealerProfitAndMargin } from '../utils/petroleumTaxEngine';
 
@@ -32,11 +35,24 @@ export default function DayBookView() {
     fleetAccounts,
     dealerMargins,
     exportTallyXml,
-    exportCaSalesCsv
+    exportCaSalesCsv,
+    morningDensityLogs,
+    recordMorningDensityLog,
+    forecourtExpenses
   } = useApp();
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [activeTab, setActiveTab] = useState('ALL'); // ALL, PAGE1, PAGE2
+  const [densityModalOpen, setDensityModalOpen] = useState(false);
+  const [selectedTankForDensity, setSelectedTankForDensity] = useState(tanks[0]?.id || 'tank-1');
+  const [densityForm, setDensityForm] = useState({
+    observedTempC: '24.5',
+    observedDensity: '740.0',
+    invoiceDensityAt15C: '745.0',
+    dipMm: '1420',
+    waterDipMm: '0',
+    testedBy: 'Vijay Sharma (Manager)'
+  });
 
   // Filter transactions for this date
   const dayTxns = transactions.filter(t => t.timestamp && t.timestamp.startsWith(selectedDate));
@@ -56,8 +72,47 @@ export default function DayBookView() {
   const creditVouchers = activeTxns.filter(t => t.paymentMode === 'CREDIT').reduce((acc, t) => acc + t.totalAmount, 0);
   const totalSettled = cashCollected + upiCollected + cardCollected + creditVouchers;
 
-  // Profit engine
-  const profitReport = calculateDealerProfitAndMargin(activeTxns, dealerMargins, 4250);
+  // Dynamic forecourt overheads calculated from real recorded expenses
+  const totalActualExpenses = forecourtExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+  const profitReport = calculateDealerProfitAndMargin(activeTxns, dealerMargins, totalActualExpenses);
+
+  const handleOpenDensityModal = (tank) => {
+    setSelectedTankForDensity(tank.id);
+    const existing = morningDensityLogs[tank.id];
+    if (existing) {
+      setDensityForm({
+        observedTempC: existing.observedTempC.toString(),
+        observedDensity: existing.observedDensity.toString(),
+        invoiceDensityAt15C: existing.invoiceDensityAt15C.toString(),
+        dipMm: (existing.dipMm || 1200).toString(),
+        waterDipMm: (existing.waterDipMm || 0).toString(),
+        testedBy: existing.testedBy || 'Vijay Sharma (Manager)'
+      });
+    } else {
+      setDensityForm({
+        observedTempC: '24.5',
+        observedDensity: tank.fuelCode === 'MS' ? '740.0' : '825.0',
+        invoiceDensityAt15C: tank.fuelCode === 'MS' ? '745.0' : '828.0',
+        dipMm: '1200',
+        waterDipMm: '0',
+        testedBy: 'Vijay Sharma (Manager)'
+      });
+    }
+    setDensityModalOpen(true);
+  };
+
+  const handleSaveDensity = (e) => {
+    e.preventDefault();
+    recordMorningDensityLog(selectedTankForDensity, {
+      observedTempC: parseFloat(densityForm.observedTempC) || 24.5,
+      observedDensity: parseFloat(densityForm.observedDensity) || 740,
+      invoiceDensityAt15C: parseFloat(densityForm.invoiceDensityAt15C) || 745,
+      dipMm: parseFloat(densityForm.dipMm) || 0,
+      waterDipMm: parseFloat(densityForm.waterDipMm) || 0,
+      testedBy: densityForm.testedBy
+    });
+    setDensityModalOpen(false);
+  };
 
   // Print helper
   const handlePrint = () => {
@@ -286,7 +341,7 @@ export default function DayBookView() {
                   <tbody>
                     {nozzles.map((noz, idx) => {
                       const netVolume = Math.max(0, noz.currentMeter - noz.openingMeter);
-                      const testingLiters = 5.0; // 5L Legal Metrology conical measure
+                      const testingLiters = noz.testingVolume !== undefined ? noz.testingVolume : 5.0; // Legal Metrology conical measure
                       const retailVolume = Math.max(0, netVolume - testingLiters);
                       const nozRevenue = retailVolume * noz.rate;
 
@@ -333,40 +388,84 @@ export default function DayBookView() {
                     Section C: Morning 06:00 AM Product Quality, Density & Temperature Log
                   </h3>
                 </div>
-                <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                  Statutory Tolerance: <strong>±3.0 kg/m³ vs Invoice Density @ 15°C</strong>
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                    Statutory Tolerance: <strong>±3.0 kg/m³ vs Invoice Density @ 15°C</strong>
+                  </span>
+                  <button
+                    onClick={() => handleOpenDensityModal(tanks[0] || { id: 'tank-1', fuelCode: 'MS', name: 'Tank 1' })}
+                    className="no-print"
+                    style={{
+                      padding: '4px 10px',
+                      background: 'rgba(52, 211, 153, 0.15)',
+                      border: '1px solid #34d399',
+                      borderRadius: '6px',
+                      color: '#34d399',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Edit3 size={12} /> Log / Edit 06:00 AM Dips
+                  </button>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
                 {tanks.map(t => {
-                  const invoiceDensity = t.fuelCode === 'MS' ? 745.0 : t.fuelCode === 'HSD' ? 828.0 : 752.0;
-                  const morningTemp = 24.5;
-                  const observedDensity = t.fuelCode === 'MS' ? 739.2 : t.fuelCode === 'HSD' ? 822.4 : 746.0;
-                  const correctedDensity = t.fuelCode === 'MS' ? 745.8 : t.fuelCode === 'HSD' ? 828.6 : 752.5;
-                  const diff = correctedDensity - invoiceDensity;
+                  const log = morningDensityLogs[t.id] || {
+                    observedTempC: 24.5,
+                    observedDensity: t.fuelCode === 'MS' ? 739.2 : 822.4,
+                    convertedDensityAt15C: t.fuelCode === 'MS' ? 745.8 : 828.6,
+                    invoiceDensityAt15C: t.fuelCode === 'MS' ? 745.0 : 828.0,
+                    densityVariance: t.fuelCode === 'MS' ? 0.8 : 0.6,
+                    dipMm: t.currentDipMm || 1600,
+                    waterDipMm: 0,
+                    status: 'WITHIN_TOLERANCE'
+                  };
+                  const diff = log.densityVariance !== undefined ? log.densityVariance : (log.convertedDensityAt15C - log.invoiceDensityAt15C);
+                  const isVerified = Math.abs(diff) <= 3.0;
 
                   return (
                     <div key={t.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <strong style={{ color: '#ffffff', fontSize: '0.8rem' }}>{t.name} ({t.fuelCode})</strong>
-                        <span style={{ fontSize: '0.65rem', color: '#34d399', fontWeight: 700 }}>✓ VERIFIED</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.65rem', color: isVerified ? '#34d399' : '#f87171', fontWeight: 700 }}>
+                            {isVerified ? '✓ VERIFIED' : '⚠ OUT OF SPEC'}
+                          </span>
+                          <button
+                            onClick={() => handleOpenDensityModal(t)}
+                            className="no-print"
+                            title="Edit Density & Dip"
+                            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
+                          >
+                            <Edit3 size={12} />
+                          </button>
+                        </div>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '6px' }}>
-                        <span>Observed @ {morningTemp}°C:</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', color: '#f8fafc' }}>{observedDensity} kg/m³</span>
+                        <span>Observed @ {log.observedTempC}°C:</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', color: '#f8fafc' }}>{log.observedDensity} kg/m³</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
-                        <span>Corrected @ 15°C:</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>{correctedDensity} kg/m³</span>
+                        <span>Corrected @ 15°C (ASTM 53B):</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>{log.convertedDensityAt15C} kg/m³</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
                         <span>Invoice Density:</span>
-                        <span style={{ fontFamily: 'var(--font-mono)' }}>{invoiceDensity} kg/m³</span>
+                        <span style={{ fontFamily: 'var(--font-mono)' }}>{log.invoiceDensityAt15C} kg/m³</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#34d399', marginTop: '2px', fontWeight: 700 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: isVerified ? '#34d399' : '#f87171', marginTop: '2px', fontWeight: 700 }}>
                         <span>Variance:</span>
-                        <span>{diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1)} kg/m³ (Within ±3)</span>
+                        <span>{diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1)} kg/m³ ({isVerified ? 'Within ±3' : 'FAIL'})</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(255,255,255,0.06)' }}>
+                        <span>Opening Dip: {log.dipMm || t.currentDipMm || 0} mm</span>
+                        <span>Water Dip: {log.waterDipMm || 0} mm</span>
                       </div>
                     </div>
                   );
@@ -627,6 +726,159 @@ export default function DayBookView() {
         )}
 
       </div>
+
+      {/* 06:00 AM DENSITY & DIP ENTRY MODAL */}
+      {densityModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#0f172a',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '520px',
+            padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <ShieldCheck size={20} color="#34d399" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+                  Log 06:00 AM Density & Dip (ASTM 53B)
+                </h3>
+              </div>
+              <button
+                onClick={() => setDensityModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDensity} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Select Tank</label>
+                <select
+                  value={selectedTankForDensity}
+                  onChange={(e) => {
+                    const tId = e.target.value;
+                    const tank = tanks.find(t => t.id === tId);
+                    if (tank) handleOpenDensityModal(tank);
+                  }}
+                  style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                >
+                  {tanks.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.fuelCode}) - Capacity {t.capacityLiters} L</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Observed Temp (°C)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={densityForm.observedTempC}
+                    onChange={(e) => setDensityForm({ ...densityForm, observedTempC: e.target.value })}
+                    style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Observed Density (kg/m³)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={densityForm.observedDensity}
+                    onChange={(e) => setDensityForm({ ...densityForm, observedDensity: e.target.value })}
+                    style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Invoice Density @ 15°C</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={densityForm.invoiceDensityAt15C}
+                    onChange={(e) => setDensityForm({ ...densityForm, invoiceDensityAt15C: e.target.value })}
+                    style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Opening Dip (mm)</label>
+                  <input
+                    type="number"
+                    value={densityForm.dipMm}
+                    onChange={(e) => setDensityForm({ ...densityForm, dipMm: e.target.value })}
+                    style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Water Dip (mm)</label>
+                  <input
+                    type="number"
+                    value={densityForm.waterDipMm}
+                    onChange={(e) => setDensityForm({ ...densityForm, waterDipMm: e.target.value })}
+                    style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Tested & Verified By</label>
+                  <input
+                    type="text"
+                    value={densityForm.testedBy}
+                    onChange={(e) => setDensityForm({ ...densityForm, testedBy: e.target.value })}
+                    style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(52, 211, 153, 0.08)', border: '1px solid rgba(52, 211, 153, 0.25)', borderRadius: '8px', padding: '10px', fontSize: '0.75rem', color: '#6ee7b7' }}>
+                <strong>ASTM 53B Standard Formula:</strong> Automatically converts observed hydrometer density at measured temperature to standard density at 15°C and alerts if deviation exceeds ±3.0 kg/m³.
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setDensityModalOpen(false)}
+                  style={{ padding: '8px 16px', background: '#334155', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '0.85rem', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-action-green"
+                  style={{ padding: '8px 20px', fontSize: '0.85rem', fontWeight: 700 }}
+                >
+                  Save & Certify Reading
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

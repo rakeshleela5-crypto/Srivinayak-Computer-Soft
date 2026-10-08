@@ -18,6 +18,7 @@ import {
   INITIAL_LOYALTY_CUSTOMERS,
   INITIAL_AUTOMATED_ALERTS,
   INITIAL_DIGITAL_INDENTS,
+  INITIAL_MORNING_DENSITY_LOGS,
   TRANSLATIONS
 } from '../constants/initialData';
 import {
@@ -134,6 +135,12 @@ export const AppProvider = ({ children }) => {
       10: 20,
       coins: 400
     };
+  });
+
+  // 06:00 AM Morning Density & Temperature Register (ASTM 53B Standard)
+  const [morningDensityLogs, setMorningDensityLogs] = useState(() => {
+    const saved = localStorage.getItem('svp_morning_density');
+    return saved ? JSON.parse(saved) : INITIAL_MORNING_DENSITY_LOGS;
   });
 
   // Active Fleet Selected in Fleet Portal View
@@ -935,6 +942,45 @@ export const AppProvider = ({ children }) => {
     });
   };
 
+  // Record 06:00 AM Daily Morning Density & Dip Log (ASTM 53B)
+  const recordMorningDensityLog = (tankId, logData) => {
+    const tank = tanks.find(t => t.id === tankId);
+    const fuelCode = tank ? tank.fuelCode : (logData.fuelCode || 'MS');
+    const observedTemp = parseFloat(logData.observedTempC) || 24.5;
+    const observedDens = parseFloat(logData.observedDensity) || (fuelCode === 'MS' ? 740.0 : 825.0);
+    const invoiceDens = parseFloat(logData.invoiceDensityAt15C) || (fuelCode === 'MS' ? 745.0 : 828.0);
+
+    // ASTM 53B petroleum temperature coefficient
+    const factor = fuelCode === 'MS' ? 0.000678 : 0.000650;
+    const converted = Number((observedDens * (1 + factor * (observedTemp - 15))).toFixed(1));
+    const variance = Number((converted - invoiceDens).toFixed(1));
+    const isWithinTol = Math.abs(variance) <= 3.0;
+
+    const newRecord = {
+      tankId,
+      fuelCode,
+      date: logData.date || new Date().toISOString().slice(0, 10),
+      time: logData.time || '06:00 AM',
+      observedTempC: observedTemp,
+      observedDensity: observedDens,
+      convertedDensityAt15C: converted,
+      invoiceDensityAt15C: invoiceDens,
+      densityVariance: variance,
+      dipMm: parseFloat(logData.dipMm) || 0,
+      waterDipMm: parseFloat(logData.waterDipMm) || 0,
+      status: isWithinTol ? 'WITHIN_TOLERANCE' : 'ALERT_OUT_OF_SPEC',
+      testedBy: logData.testedBy || 'Vijay Sharma (Manager)'
+    };
+
+    setMorningDensityLogs(prev => {
+      const updated = { ...prev, [tankId]: newRecord };
+      localStorage.setItem('svp_morning_density', JSON.stringify(updated));
+      return updated;
+    });
+
+    return newRecord;
+  };
+
   // 1-Click Tally Prime & CA Exports
   const exportTallyXml = (targetDate = '2026-10-08') => {
     const xml = generateTallyPrimeXml({
@@ -1043,7 +1089,9 @@ export const AppProvider = ({ children }) => {
         getDealerProfitReport,
         exportTallyXml,
         exportCaSalesCsv,
-        exportCaPurchaseCsv
+        exportCaPurchaseCsv,
+        morningDensityLogs,
+        recordMorningDensityLog
       }}
     >
       {children}

@@ -27,11 +27,20 @@ export default function TaxComplianceView() {
     lfrRates, 
     updateLfrRates,
     getLfrAndTdsReport,
-    getSection194QReport
+    getSection194QReport,
+    decantations
   } = useApp();
 
+  // Calculate live decanted inward purchases value
+  const decantedInwardsTotal = decantations.reduce((sum, d) => {
+    const estRate = d.fuelCode === 'MS' ? 92.50 : 81.20;
+    return sum + (d.invoicedQty * estRate);
+  }, 0);
+  const baselinePurchases = stationInfo.fyPurchasesOMC || 18450000;
+  const liveTotalPurchases = baselinePurchases + decantedInwardsTotal;
+
   const [activeTab, setActiveTab] = useState('194Q'); // '194Q' or 'LFR' or '194C'
-  const [fyPurchasesInput, setFyPurchasesInput] = useState(stationInfo.fyPurchasesOMC || 18450000);
+  const [fyPurchasesInput, setFyPurchasesInput] = useState(liveTotalPurchases);
   const [hasHigherRate206AB, setHasHigherRate206AB] = useState(false);
   const [editingLfr, setEditingLfr] = useState(false);
   const [customLfrRates, setCustomLfrRates] = useState({
@@ -317,6 +326,86 @@ export default function TaxComplianceView() {
             </div>
 
           </div>
+
+          {/* Live Inward Tanker Decantations Audit Table */}
+          <div className="glass-card" style={{ padding: '22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Receipt size={18} color="#a855f7" />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                  Live Inward Tanker Decantations (OMC Purchase Audit Ledger)
+                </h3>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.72rem', color: '#a855f7', background: 'rgba(168, 85, 247, 0.15)', padding: '4px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                  {decantations.length} RECORDED TT DELIVERIES (₹{decantedInwardsTotal.toLocaleString('en-IN')} TOTAL)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFyPurchasesInput(liveTotalPurchases)}
+                  className="btn-secondary"
+                  style={{ fontSize: '0.72rem', padding: '4px 10px', color: '#a855f7', borderColor: '#a855f7' }}
+                >
+                  ⚡ Auto-Sync Cumulative FY Total
+                </button>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(30, 41, 59, 0.8)', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    <th style={{ padding: '10px 8px' }}>INVOICE NO</th>
+                    <th style={{ padding: '10px 8px' }}>TANKER TT NO</th>
+                    <th style={{ padding: '10px 8px' }}>DATE & TIME</th>
+                    <th style={{ padding: '10px 8px' }}>PRODUCT</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>INVOICED QTY (L)</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>EST. INVOICE VALUE (₹)</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>194Q TDS @ 0.1% (₹)</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {decantations.map(dec => {
+                    const estRate = dec.fuelCode === 'MS' ? 92.50 : 81.20;
+                    const estValue = dec.invoicedQty * estRate;
+                    const decTds = estValue * 0.001; // 0.1% TDS
+                    return (
+                      <tr key={dec.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td style={{ padding: '10px 8px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                          {dec.invoiceNo}
+                        </td>
+                        <td style={{ padding: '10px 8px', color: '#38bdf8', fontWeight: 700 }}>
+                          {dec.tankerTTNo}
+                        </td>
+                        <td style={{ padding: '10px 8px', color: '#94a3b8' }}>
+                          {dec.date}
+                        </td>
+                        <td style={{ padding: '10px 8px', fontWeight: 700, color: dec.fuelCode === 'MS' ? '#f97316' : '#3b82f6' }}>
+                          {dec.fuelCode} ({dec.fuelName})
+                        </td>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                          {dec.invoicedQty.toLocaleString('en-IN')} L
+                        </td>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fbbf24' }}>
+                          ₹{estValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#a855f7' }}>
+                          ₹{decTds.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                          <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', fontWeight: 700 }}>
+                            ✓ {dec.status || 'VERIFIED'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 

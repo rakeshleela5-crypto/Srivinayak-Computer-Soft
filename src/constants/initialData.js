@@ -536,6 +536,84 @@ export const INITIAL_INWARD_DECANTATIONS = [
   }
 ];
 
+export const INITIAL_MORNING_DENSITY_LOGS = {
+  "tank-1": {
+    tankId: "tank-1",
+    fuelCode: "MS",
+    date: "2026-10-08",
+    time: "06:00 AM",
+    observedTempC: 24.5,
+    observedDensity: 739.2,
+    convertedDensityAt15C: 745.8,
+    invoiceDensityAt15C: 745.0,
+    densityVariance: 0.8,
+    dipMm: 1420,
+    waterDipMm: 0,
+    status: "WITHIN_TOLERANCE",
+    testedBy: "Vijay Sharma (Manager)"
+  },
+  "tank-2": {
+    tankId: "tank-2",
+    fuelCode: "XP95",
+    date: "2026-10-08",
+    time: "06:00 AM",
+    observedTempC: 24.5,
+    observedDensity: 746.0,
+    convertedDensityAt15C: 752.5,
+    invoiceDensityAt15C: 752.0,
+    densityVariance: 0.5,
+    dipMm: 980,
+    waterDipMm: 0,
+    status: "WITHIN_TOLERANCE",
+    testedBy: "Vijay Sharma (Manager)"
+  },
+  "tank-3": {
+    tankId: "tank-3",
+    fuelCode: "HSD",
+    date: "2026-10-08",
+    time: "06:00 AM",
+    observedTempC: 24.0,
+    observedDensity: 822.4,
+    convertedDensityAt15C: 828.6,
+    invoiceDensityAt15C: 828.0,
+    densityVariance: 0.6,
+    dipMm: 1850,
+    waterDipMm: 0,
+    status: "WITHIN_TOLERANCE",
+    testedBy: "Vijay Sharma (Manager)"
+  },
+  "tank-4": {
+    tankId: "tank-4",
+    fuelCode: "HSD",
+    date: "2026-10-08",
+    time: "06:00 AM",
+    observedTempC: 24.2,
+    observedDensity: 822.1,
+    convertedDensityAt15C: 828.4,
+    invoiceDensityAt15C: 828.0,
+    densityVariance: 0.4,
+    dipMm: 1720,
+    waterDipMm: 0,
+    status: "WITHIN_TOLERANCE",
+    testedBy: "Vijay Sharma (Manager)"
+  },
+  "tank-5": {
+    tankId: "tank-5",
+    fuelCode: "CNG",
+    date: "2026-10-08",
+    time: "06:00 AM",
+    observedTempC: 25.0,
+    observedDensity: 0.72,
+    convertedDensityAt15C: 0.72,
+    invoiceDensityAt15C: 0.72,
+    densityVariance: 0.0,
+    dipMm: 0,
+    waterDipMm: 0,
+    status: "WITHIN_TOLERANCE",
+    testedBy: "Vijay Sharma (Manager)"
+  }
+};
+
 export const INITIAL_TRANSACTIONS = [
   {
     id: "TXN-84091",
