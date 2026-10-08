@@ -20,12 +20,37 @@ export async function onRequestGet(context) {
         "SELECT * FROM lfr_rates"
       ).all();
 
+      const densityList = (morningDensity.results || []).map(m => ({
+        ...m,
+        id: m.id,
+        tankId: m.tank_id || m.tankId,
+        fuelCode: m.fuel_code || m.fuelCode,
+        observedTempC: Number(m.observed_temp_c ?? 28),
+        observedDensity: Number(m.observed_density ?? 745),
+        convertedDensityAt15C: Number(m.converted_density_15c ?? 750),
+        invoiceDensityAt15C: Number(m.invoice_density_15c ?? 750),
+        densityVariance: Number(m.density_variance ?? 0),
+        dipMm: Number(m.dip_mm ?? 0),
+        waterDipMm: Number(m.water_dip_mm ?? 0),
+        testedBy: m.tested_by || m.testedBy
+      }));
+
+      const marginsMap = {};
+      (dealerMargins.results || []).forEach(d => {
+        marginsMap[d.fuel_code] = Number(d.margin_per_unit);
+      });
+
+      const lfrMap = {};
+      (lfrRates.results || []).forEach(l => {
+        lfrMap[l.fuel_code] = Number(l.rate_per_kl);
+      });
+
       return Response.json({
         success: true,
         date,
-        morningDensityLogs: morningDensity.results || [],
-        dealerMargins: dealerMargins.results || [],
-        lfrRates: lfrRates.results || [],
+        morningDensityLogs: densityList,
+        dealerMargins: marginsMap,
+        lfrRates: lfrMap,
         source: "Cloudflare D1 Edge"
       });
     }

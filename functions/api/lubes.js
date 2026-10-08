@@ -8,7 +8,14 @@ export async function onRequestGet(context) {
       const { results } = await env.DB.prepare(
         "SELECT * FROM lubricants ORDER BY name ASC"
       ).all();
-      return Response.json({ success: true, lubricants: results, source: "Cloudflare D1 Edge" });
+      const normalized = (results || []).map(l => ({
+        ...l,
+        id: l.lube_id || l.id,
+        stockQty: Number(l.stock_qty ?? l.stockQty ?? 0),
+        minReorder: Number(l.min_reorder ?? l.minReorder ?? 0),
+        gstPercent: Number(l.gst_percent ?? l.gstPercent ?? 18)
+      }));
+      return Response.json({ success: true, lubricants: normalized, source: "Cloudflare D1 Edge" });
     }
 
     return Response.json({

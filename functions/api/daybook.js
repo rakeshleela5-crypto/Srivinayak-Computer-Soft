@@ -20,12 +20,36 @@ export async function onRequestGet(context) {
         "SELECT staff_id, name, role, total_shortage_pending FROM staff WHERE is_active = 1"
       ).all();
 
+      const expensesList = (expenses.results || []).map(e => ({
+        ...e,
+        id: e.expense_id || e.id,
+        paidTo: e.paid_to || e.paidTo,
+        approvedBy: e.approved_by || e.approvedBy,
+        receiptVoucherNo: e.receipt_voucher_no || e.receiptVoucherNo
+      }));
+
+      const depositsList = (bankDeposits.results || []).map(d => ({
+        ...d,
+        id: d.deposit_id || d.id,
+        bankName: d.bank_name || d.bankName,
+        accountNo: d.account_no || d.accountNo,
+        depositedBy: d.deposited_by || d.depositedBy,
+        challanNo: d.challan_no || d.challanNo
+      }));
+
+      const staffList = (staff.results || []).map(s => ({
+        ...s,
+        id: s.staff_id || s.id,
+        staffId: s.staff_id || s.id,
+        totalShortagePending: Number(s.total_shortage_pending ?? 0)
+      }));
+
       return Response.json({
         success: true,
         date,
-        expenses: expenses.results || [],
-        bankDeposits: bankDeposits.results || [],
-        staffShortages: staff.results || [],
+        expenses: expensesList,
+        bankDeposits: depositsList,
+        staffShortages: staffList,
         source: "Cloudflare D1 Edge"
       });
     }

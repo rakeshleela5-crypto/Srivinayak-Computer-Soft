@@ -1,5 +1,4 @@
-// Cloudflare Pages Function: /api/nozzles
-// Manages forecourt nozzle totalizer meters, dispenser statuses, calibration drops, and safety interlocks
+import { normalizeNozzle } from './_dbNormalizer.js';
 
 export async function onRequestGet(context) {
   try {
@@ -8,7 +7,8 @@ export async function onRequestGet(context) {
       const { results } = await env.DB.prepare(
         "SELECT * FROM nozzles ORDER BY nozzle_number ASC"
       ).all();
-      return Response.json({ success: true, nozzles: results, source: "Cloudflare D1 Edge" });
+      const normalized = (results || []).map(normalizeNozzle);
+      return Response.json({ success: true, nozzles: normalized, source: "Cloudflare D1 Edge" });
     }
 
     return Response.json({

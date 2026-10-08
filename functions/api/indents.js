@@ -1,5 +1,6 @@
 // Cloudflare Pages Function: /api/indents
 // High-performance Cloudflare D1 Edge API for B2B Fleet QR Indent Slips
+import { normalizeDigitalIndent } from './_dbNormalizer.js';
 
 export async function onRequestGet(context) {
   try {
@@ -15,7 +16,7 @@ export async function onRequestGet(context) {
           "SELECT * FROM digital_indents WHERE indent_number = ? LIMIT 1"
         ).bind(indentNumber).first();
 
-        return Response.json({ success: true, indent: indent || null });
+        return Response.json({ success: true, indent: normalizeDigitalIndent(indent) });
       }
 
       let query = "SELECT * FROM digital_indents WHERE 1=1";
@@ -34,7 +35,7 @@ export async function onRequestGet(context) {
       const stmt = env.DB.prepare(query);
       const { results } = await (params.length > 0 ? stmt.bind(...params) : stmt).all();
 
-      return Response.json({ success: true, indents: results, source: "Cloudflare D1 Edge" });
+      return Response.json({ success: true, indents: (results || []).map(normalizeDigitalIndent), source: "Cloudflare D1 Edge" });
     }
 
     // Edge Mock Fallback if D1 not bound locally

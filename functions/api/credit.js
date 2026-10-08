@@ -1,5 +1,6 @@
 // Cloudflare Pages Function: /api/credit
 // B2B Fleet Khata Accounts, Credit Limits, Ledgers, and Payment Receipts
+import { normalizeCreditAccount, normalizeTransaction } from './_dbNormalizer.js';
 
 export async function onRequestGet(context) {
   try {
@@ -9,18 +10,33 @@ export async function onRequestGet(context) {
 
     if (env.DB) {
       if (customerId) {
-        const account = await env.DB.prepare(
+        const rawAccount = await env.DB.prepare(
           "SELECT * FROM credit_accounts WHERE customer_id = ? LIMIT 1"
         ).bind(customerId).first();
 
-        const transactions = await env.DB.prepare(
-          "SELECT * FROM transactions WHERE customer_id = ? ORDER BY timestamp DESC LIMIT 30"
+        const rawTransactions = await env.DB.prepare(
+          "SELECT * FROM transactions WHERE customer_id = ? OR credit_account_id = ? ORDER BY timestamp DESC LIMIT 30"
+        ).bind(customerId, customerId).all();
+
+        const rawVehicles = await env.DB.prepare(
+          "SELECT * FROM fleet_vehicles WHERE fleet_id = ?"
         ).bind(customerId).all();
+
+        const account = normalizeCreditAccount(rawAccount);
+        if (account) {
+          account.vehicles = (rawVehicles.results || []).map(v => ({
+            plate: v.plate_number,
+            type: v.vehicle_type,
+            driver: v.driver_name,
+            dailyQuotaLiters: v.daily_quota_liters
+          }));
+        }
 
         return Response.json({
           success: true,
           account,
-          transactions: transactions.results || []
+          transactions: (rawTransactions.results || []).map(normalizeTransaction),
+          source: "Cloudflare D1 Edge"
         });
       }
 
@@ -28,7 +44,8 @@ export async function onRequestGet(context) {
         "SELECT * FROM credit_accounts ORDER BY current_balance DESC"
       ).all();
 
-      return Response.json({ success: true, accounts: results, source: "Cloudflare D1 Edge" });
+      const normalized = (results || []).map(normalizeCreditAccount);
+      return Response.json({ success: true, accounts: normalized, source: "Cloudflare D1 Edge" });
     }
 
     return Response.json({
@@ -64,6 +81,17 @@ export async function onRequestPost(context) {
           SET current_balance = MAX(0, current_balance - ?)
           WHERE customer_id = ?
         `).bind(Number(amount), customerId).run();
+
+        // Also log payment in bank_deposits as cleared settlement
+        await env.DB.prepare(`
+          INSERT INTO bank_deposits (deposit_id, date, bank_name, account_no, amount, deposited_by, challan_no, status)
+          VALUES (?, CURRENT_DATE, ?, 'B2B-SETTLEMENT', ?, 'Fleet Owner Payment', ?, 'CLEARED')
+        `).bind(
+          receiptId,
+          `Fleet Remittance (${paymentMode})`,
+          Number(amount),
+          referenceNo || `CR-REF-${Date.now().toString().slice(-4)}`
+        ).run();
       }
 
       return Response.json({
@@ -81,7 +109,7 @@ export async function onRequestPost(context) {
 
     // Action 2: Update Credit Limit / Strict Lock
     if (action === "UPDATE_LIMIT") {
-      const { customerId, creditLimit, status } = body;
+      const { customerId, creditLimit, hardLockEnabled, status } = body;
       if (!customerId) {
         return Response.json({ success: false, error: "Missing customerId" }, { status: 400 });
       }
@@ -89,9 +117,16 @@ export async function onRequestPost(context) {
       if (env.DB) {
         await env.DB.prepare(`
           UPDATE credit_accounts 
-          SET credit_limit = COALESCE(?, credit_limit), status = COALESCE(?, status)
+          SET credit_limit = COALESCE(?, credit_limit), 
+              hard_lock_enabled = COALESCE(?, hard_lock_enabled),
+              status = COALESCE(?, status)
           WHERE customer_id = ?
-        `).bind(creditLimit !== undefined ? Number(creditLimit) : null, status || null, customerId).run();
+        `).bind(
+          creditLimit !== undefined ? Number(creditLimit) : null,
+          hardLockEnabled !== undefined ? (hardLockEnabled ? 1 : 0) : null,
+          status || null,
+          customerId
+        ).run();
       }
 
       return Response.json({
