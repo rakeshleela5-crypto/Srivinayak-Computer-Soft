@@ -182,10 +182,31 @@ CREATE TABLE IF NOT EXISTS calibration_tests (
   inspector TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS digital_indents (
+  id TEXT PRIMARY KEY,
+  indent_number TEXT UNIQUE NOT NULL,
+  fleet_id TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  vehicle_plate TEXT NOT NULL,
+  driver_name TEXT NOT NULL,
+  driver_phone TEXT,
+  fuel_code TEXT NOT NULL,
+  max_liters REAL NOT NULL,
+  max_amount REAL NOT NULL,
+  security_pin TEXT NOT NULL,
+  qr_payload TEXT NOT NULL,
+  status TEXT DEFAULT 'ACTIVE',
+  redeemed_receipt TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME
+);
+
 -- Indices for Microsecond Edge Query Routing
 CREATE INDEX IF NOT EXISTS idx_txn_shift ON transactions(shift_id);
 CREATE INDEX IF NOT EXISTS idx_txn_nozzle ON transactions(nozzle_id);
 CREATE INDEX IF NOT EXISTS idx_nozzle_tank ON nozzles(tank_id);
 CREATE INDEX IF NOT EXISTS idx_credit_status ON credit_accounts(status);
 CREATE INDEX IF NOT EXISTS idx_loyalty_phone ON loyalty_customers(phone);
+CREATE INDEX IF NOT EXISTS idx_indents_fleet ON digital_indents(fleet_id);
+CREATE INDEX IF NOT EXISTS idx_indents_plate ON digital_indents(vehicle_plate);
 
