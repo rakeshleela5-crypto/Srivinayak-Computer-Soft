@@ -28,6 +28,7 @@ export default function ShiftsView() {
     transactions,
     activeRole,
     recordStaffShortage,
+    recordShiftHandover,
     shiftDenominations,
     saveShiftDenominations
   } = useApp();
@@ -59,6 +60,17 @@ export default function ShiftsView() {
     } else {
       audioFX.playCashRegister();
     }
+
+    // Call backend handover API
+    recordShiftHandover({
+      shiftId: currentShift.id,
+      outgoingCashier,
+      incomingCashier,
+      physicalCashHanded,
+      calculatedCash: currentShift.cashCollected,
+      supervisor: currentShift.supervisor,
+      notes: handoverNotes
+    });
 
     setHandoverSuccess(true);
     setTimeout(() => {

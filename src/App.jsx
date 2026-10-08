@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
+import ForecourtPhasingBar from './components/ForecourtPhasingBar';
 import Sidebar from './components/Sidebar';
 import ReceiptModal from './components/ReceiptModal';
 import DashboardView from './views/DashboardView';
@@ -119,6 +120,9 @@ export default function App() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       {/* Top Navigation & Status Bar */}
       <Navbar />
+
+      {/* Forecourt Phasing & Timing Coordination Banner */}
+      <ForecourtPhasingBar />
 
       {/* Main Body Layout */}
       <div style={{ flex: 1, padding: '12px 16px' }}>

@@ -34,6 +34,8 @@ import {
   generateCaPurchaseRegisterCsv,
   downloadFile
 } from '../utils/tallyXmlGenerator';
+import { syncManager } from '../utils/syncManager';
+import { FORECOURT_PHASES, getActivePhaseFromTime } from '../utils/forecourtCoordinator';
 
 const AppContext = createContext(null);
 
@@ -149,9 +151,61 @@ export const AppProvider = ({ children }) => {
   // Active Salesman Selected in Salesman Mobile View
   const [activeSalesmanId, setActiveSalesmanId] = useState(INITIAL_STAFF[0]?.id || 'staff-1');
 
+  // Forecourt Phasing & Timing Coordination
+  const [currentPhase, setCurrentPhase] = useState(() => getActivePhaseFromTime().id);
+  const [decantationLock, setDecantationLock] = useState(false);
+  const [decantingTankId, setDecantingTankId] = useState(null);
+
+  // Live Edge Sync Status from SyncManager
+  const [syncStatus, setSyncStatus] = useState({
+    isOnline: syncManager.isOnline,
+    syncState: syncManager.syncState,
+    queueLength: syncManager.getQueue().length,
+    lastSyncedAt: syncManager.lastSyncedAt
+  });
+
+  useEffect(() => {
+    const unsub = syncManager.subscribe(status => {
+      setSyncStatus(status);
+      setIsOnline(status.isOnline);
+      setOfflineQueue(syncManager.getQueue());
+    });
+    return unsub;
+  }, []);
+
+  const forceSyncNow = async () => {
+    const res = await syncManager.flushOfflineQueue();
+    if (res?.success) {
+      setTransactions(prev => prev.map(t => ({ ...t, syncStatus: 'SYNCED' })));
+    }
+    return res;
+  };
+
+  const triggerDecantationSafetyLock = (tankId, ttNo) => {
+    setDecantationLock(true);
+    setDecantingTankId(tankId);
+    setNozzles(prev => prev.map(n => n.tankId === tankId ? { ...n, status: 'DECANTING_LOCKED' } : n));
+    syncManager.pushNozzleStatus({ tankId, status: 'DECANTING_LOCKED' }).catch(console.error);
+    setCurrentPhase(3); // Enter Phase 3 Decantation Interlock
+  };
+
+  const releaseDecantationSafetyLock = () => {
+    if (decantingTankId) {
+      setNozzles(prev => prev.map(n => n.tankId === decantingTankId ? { ...n, status: 'IDLE' } : n));
+      syncManager.pushNozzleStatus({ tankId: decantingTankId, status: 'IDLE' }).catch(console.error);
+    }
+    setDecantationLock(false);
+    setDecantingTankId(null);
+    setCurrentPhase(2); // Return to Phase 2 Dispensing
+  };
+
+  const recordShiftHandover = (handoverData) => {
+    syncManager.pushShiftHandover(handoverData).catch(console.error);
+  };
+
   // Edge & Hardware Status
-  const [isOnline, setIsOnline] = useState(true);
-  const [offlineQueue, setOfflineQueue] = useState([]);
+  const [isOnline, setIsOnline] = useState(syncManager.isOnline);
+  const [offlineQueue, setOfflineQueue] = useState(() => syncManager.getQueue());
   const [activeRole, setActiveRole] = useState('Dealer (Owner)');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeReceiptModal, setActiveReceiptModal] = useState(null);
@@ -389,12 +443,14 @@ export const AppProvider = ({ children }) => {
 
     setTransactions(prev => [newTxn, ...prev]);
 
-    if (!isOnline) {
-      setOfflineQueue(prev => [...prev, newTxn]);
-    } else {
-      confetti({ particleCount: 20, spread: 45, origin: { y: 0.85 } });
-    }
+    // Dispatch to Cloudflare Edge API and offline-first queue
+    syncManager.pushTransaction(newTxn).then(res => {
+      if (res?.synced) {
+        setTransactions(prev => prev.map(t => t.id === newTxn.id ? { ...t, syncStatus: 'SYNCED' } : t));
+      }
+    }).catch(console.error);
 
+    confetti({ particleCount: 20, spread: 45, origin: { y: 0.85 } });
     setActiveReceiptModal(newTxn);
     return newTxn;
   };
@@ -458,6 +514,7 @@ export const AppProvider = ({ children }) => {
       status: 'CLEARED'
     };
     setBankDeposits(prev => [newDep, ...prev]);
+    syncManager.pushBankDeposit(newDep).catch(console.error);
     return newDep;
   };
 
@@ -476,6 +533,7 @@ export const AppProvider = ({ children }) => {
       ...prev,
       expenses: prev.expenses + Number(expenseData.amount)
     }));
+    syncManager.pushExpense(newExp).catch(console.error);
     return newExp;
   };
 
@@ -518,6 +576,7 @@ export const AppProvider = ({ children }) => {
     );
 
     setCalibrationTests(prev => [newTest, ...prev]);
+    syncManager.pushCalibration(newTest).catch(console.error);
     return newTest;
   };
 
@@ -576,6 +635,13 @@ export const AppProvider = ({ children }) => {
     );
 
     setDecantations(prev => [newDec, ...prev]);
+
+    // Dispatch to Cloudflare Edge API
+    syncManager.pushDecantation(newDec).catch(console.error);
+
+    // Safety Interlock: Lock connected nozzles during decantation
+    triggerDecantationSafetyLock(data.tankId, data.tankerTTNo);
+
     return newDec;
   };
 
@@ -782,7 +848,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // Fleet Khata Payment Recording
-  const recordFleetPayment = (accountId, amount, paymentMode, reference) => {
+  const recordFleetPayment = (accountId, amount, paymentMode = 'NEFT', reference = '') => {
     setFleetAccounts(prev =>
       prev.map(acc => {
         if (acc.id === accountId) {
@@ -795,15 +861,17 @@ export const AppProvider = ({ children }) => {
         return acc;
       })
     );
+
+    syncManager.pushBankDeposit({
+      bankName: 'Fleet Account Ledger',
+      amount,
+      challanNo: reference || `CR-PAY-${Date.now().toString().slice(-4)}`
+    }).catch(console.error);
   };
 
   // Offline Sync
   const syncOfflineTransactions = () => {
-    if (offlineQueue.length === 0) return;
-    setTransactions(prev =>
-      prev.map(t => ({ ...t, syncStatus: 'SYNCED' }))
-    );
-    setOfflineQueue([]);
+    forceSyncNow();
   };
 
   // Digital Indent Creation
@@ -835,6 +903,7 @@ export const AppProvider = ({ children }) => {
     };
 
     setDigitalIndents(prev => [newIndent, ...prev]);
+    syncManager.pushDigitalIndent(newIndent).catch(console.error);
     return newIndent;
   };
 
@@ -843,6 +912,7 @@ export const AppProvider = ({ children }) => {
     setDigitalIndents(prev =>
       prev.map(ind => ind.id === indentId ? { ...ind, status: 'REDEEMED', redeemedReceipt: receiptNo } : ind)
     );
+    syncManager.pushRedeemIndent(indentId, receiptNo).catch(console.error);
   };
 
   // Save Shift Denominations Breakdown
@@ -978,6 +1048,7 @@ export const AppProvider = ({ children }) => {
       return updated;
     });
 
+    syncManager.pushMorningDensity(newRecord).catch(console.error);
     return newRecord;
   };
 
@@ -1036,6 +1107,7 @@ export const AppProvider = ({ children }) => {
         setStaff,
         recordStaffShortage,
         recoverStaffShortage,
+        recordShiftHandover,
         bankDeposits,
         recordBankDeposit,
         forecourtExpenses,
@@ -1060,6 +1132,18 @@ export const AppProvider = ({ children }) => {
         setIsOnline,
         offlineQueue,
         syncOfflineTransactions,
+        // Master Forecourt Phasing, Timings & Coordination
+        currentPhase,
+        setCurrentPhase,
+        forecourtPhases: FORECOURT_PHASES,
+        decantationLock,
+        triggerDecantationSafetyLock,
+        releaseDecantationSafetyLock,
+        // Edge Synchronization Engine
+        syncStatus,
+        syncManager,
+        offlineQueueLength: syncStatus.queueLength,
+        forceSyncNow,
         iotStatus,
         setIotStatus,
         calculateDensityAt15C,
