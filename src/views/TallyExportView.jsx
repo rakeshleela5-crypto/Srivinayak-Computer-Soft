@@ -20,6 +20,10 @@ export default function TallyExportView() {
   const { 
     stationInfo, 
     transactions, 
+    decantations,
+    fleetAccounts,
+    currentShift,
+    forecourtExpenses,
     exportTallyXml, 
     exportCaSalesCsv, 
     exportCaPurchaseCsv 
@@ -29,12 +33,40 @@ export default function TallyExportView() {
   const [previewTab, setPreviewTab] = useState('XML'); // 'XML' or 'INSTRUCTIONS'
 
   // Generate live sample XML string for preview
-  const sampleXml = generateTallyPrimeXml(transactions, stationInfo);
+  const sampleXml = generateTallyPrimeXml({
+    stationInfo: stationInfo || {},
+    transactions: Array.isArray(transactions) ? transactions : [],
+    decantations: Array.isArray(decantations) ? decantations : [],
+    fleetAccounts: Array.isArray(fleetAccounts) ? fleetAccounts : [],
+    currentShift: currentShift || {},
+    forecourtExpenses: Array.isArray(forecourtExpenses) ? forecourtExpenses : [],
+    date: '2026-10-08'
+  });
 
   const handleCopyXml = () => {
-    navigator.clipboard.writeText(sampleXml);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(sampleXml);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  const handleDownloadXml = () => {
+    if (exportTallyXml) {
+      exportTallyXml();
+    }
+  };
+
+  const handleDownloadSales = () => {
+    if (exportCaSalesCsv) {
+      exportCaSalesCsv();
+    }
+  };
+
+  const handleDownloadPurchases = () => {
+    if (exportCaPurchaseCsv) {
+      exportCaPurchaseCsv();
+    }
   };
 
   return (
@@ -63,7 +95,7 @@ export default function TallyExportView() {
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onClick={() => exportTallyXml()}
+            onClick={handleDownloadXml}
             className="btn-action-green"
             style={{ fontSize: '0.85rem' }}
           >
@@ -93,7 +125,7 @@ export default function TallyExportView() {
           </div>
 
           <button
-            onClick={() => exportTallyXml()}
+            onClick={handleDownloadXml}
             className="btn-primary"
             style={{ marginTop: '16px', justifyContent: 'center', fontSize: '0.82rem' }}
           >
@@ -119,7 +151,7 @@ export default function TallyExportView() {
           </div>
 
           <button
-            onClick={() => exportCaSalesCsv()}
+            onClick={handleDownloadSales}
             className="btn-secondary"
             style={{ marginTop: '16px', justifyContent: 'center', fontSize: '0.82rem', borderColor: '#38bdf8', color: '#38bdf8' }}
           >
@@ -145,7 +177,7 @@ export default function TallyExportView() {
           </div>
 
           <button
-            onClick={() => exportCaPurchaseCsv()}
+            onClick={handleDownloadPurchases}
             className="btn-secondary"
             style={{ marginTop: '16px', justifyContent: 'center', fontSize: '0.82rem', borderColor: '#a855f7', color: '#c084fc' }}
           >
@@ -162,32 +194,32 @@ export default function TallyExportView() {
             <button
               onClick={() => setPreviewTab('XML')}
               style={{
-                background: previewTab === 'XML' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                border: previewTab === 'XML' ? '1px solid #f59e0b' : 'none',
-                color: previewTab === 'XML' ? '#fbbf24' : 'var(--text-muted)',
                 padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
+                background: previewTab === 'XML' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                color: previewTab === 'XML' ? '#fbbf24' : 'var(--text-muted)',
+                border: previewTab === 'XML' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
                 fontWeight: 700,
+                fontSize: '0.8rem',
                 cursor: 'pointer'
               }}
             >
-              Live Tally XML Preview
+              Live Tally XML Payload Preview
             </button>
             <button
               onClick={() => setPreviewTab('INSTRUCTIONS')}
               style={{
-                background: previewTab === 'INSTRUCTIONS' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-                border: previewTab === 'INSTRUCTIONS' ? '1px solid #38bdf8' : 'none',
-                color: previewTab === 'INSTRUCTIONS' ? '#38bdf8' : 'var(--text-muted)',
                 padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
+                background: previewTab === 'INSTRUCTIONS' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                color: previewTab === 'INSTRUCTIONS' ? '#38bdf8' : 'var(--text-muted)',
+                border: previewTab === 'INSTRUCTIONS' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
                 fontWeight: 700,
+                fontSize: '0.8rem',
                 cursor: 'pointer'
               }}
             >
-              How to Import in Tally Prime
+              Tally Prime Import Instructions
             </button>
           </div>
 
@@ -195,57 +227,62 @@ export default function TallyExportView() {
             <button
               onClick={handleCopyXml}
               className="btn-secondary"
-              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
             >
-              {copied ? <Check size={14} color="#34d399" /> : <Copy size={14} />}
-              {copied ? 'Copied to Clipboard!' : 'Copy XML'}
+              {copied ? (
+                <>
+                  <Check size={14} color="#34d399" /> Copied to Clipboard
+                </>
+              ) : (
+                <>
+                  <Copy size={14} /> Copy XML
+                </>
+              )}
             </button>
           )}
         </div>
 
         {previewTab === 'XML' ? (
-          <div style={{
-            background: '#020617',
-            padding: '16px',
-            borderRadius: '10px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            maxHeight: '380px',
-            overflowY: 'auto'
-          }}>
-            <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>
-              {sampleXml.slice(0, 3500)}
-              {sampleXml.length > 3500 ? '\n\n... [Remaining XML Vouchers Truncated for Preview. Click Export to download full file] ...' : ''}
+          <div style={{ position: 'relative' }}>
+            <pre style={{
+              background: '#090d16',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '10px',
+              padding: '16px',
+              fontSize: '0.72rem',
+              fontFamily: 'var(--font-mono)',
+              color: '#38bdf8',
+              maxHeight: '380px',
+              overflowY: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all'
+            }}>
+              {sampleXml}
             </pre>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 0' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>1</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.82rem', color: '#e2e8f0', lineHeight: 1.6 }}>
+            <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <strong style={{ color: '#ffffff' }}>Step 1: Download XML File</strong>
+              <div>Click the "Export Tally XML" button above to download the daily voucher XML file to your computer.</div>
+            </div>
+
+            <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <strong style={{ color: '#ffffff' }}>Step 2: Open Tally Prime</strong>
+              <div>Launch Tally Prime on your accountant's computer and select your Fuel Station Company.</div>
+            </div>
+
+            <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <strong style={{ color: '#ffffff' }}>Step 3: Import Transactions</strong>
               <div>
-                <strong style={{ color: '#ffffff', fontSize: '0.9rem' }}>Download Tally XML File</strong>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>
-                  Click the <strong>1-Click Tally XML Download</strong> button above. The XML file will be saved to your computer.
-                </p>
+                Navigate to <strong>Alt + O (Import) &gt; Transactions</strong>. In the file path prompt, select the downloaded XML file and press Enter.
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>2</div>
+            <div style={{ background: 'rgba(52, 211, 153, 0.08)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.2)' }}>
+              <strong style={{ color: '#34d399' }}>✓ Automatic Account Mapping</strong>
               <div>
-                <strong style={{ color: '#ffffff', fontSize: '0.9rem' }}>Open Tally Prime</strong>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>
-                  Open your petroleum company in Tally Prime. Press <kbd style={{ background: '#334155', padding: '2px 6px', borderRadius: '4px', color: '#fff' }}>Alt + O</kbd> (Import menu) from the Gateway of Tally.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>3</div>
-              <div>
-                <strong style={{ color: '#ffffff', fontSize: '0.9rem' }}>Select "Transactions" & Paste File Path</strong>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>
-                  Select <strong>Transactions</strong>, enter the file path of the downloaded <code>.xml</code> file, and press Enter. Tally will auto-create all Sales, Purchase 194Q, and Receipt entries instantly!
-                </p>
+                Tally Prime will automatically create/map Sales Vouchers with party ledgers, fuel revenue accounts, <strong>Section 194Q TDS entries</strong>, transporter discounts, and cash drawer debits.
               </div>
             </div>
           </div>

@@ -21,7 +21,7 @@ import {
   Calendar,
   Receipt
 } from 'lucide-react';
-import { calculateDealerProfitAndMargin } from '../utils/petroleumTaxEngine';
+import { calculateDealerProfitAndMargin, DEFAULT_DEALER_MARGINS } from '../utils/petroleumTaxEngine';
 
 export default function DealerMarginView() {
   const { 
@@ -35,7 +35,12 @@ export default function DealerMarginView() {
   } = useApp();
 
   const [editingMargins, setEditingMargins] = useState(false);
-  const [tempMargins, setTempMargins] = useState({ ...dealerMargins });
+  const [tempMargins, setTempMargins] = useState({ 
+    MS: dealerMargins?.MS ?? DEFAULT_DEALER_MARGINS.MS,
+    XP95: dealerMargins?.XP95 ?? DEFAULT_DEALER_MARGINS.XP95,
+    HSD: dealerMargins?.HSD ?? DEFAULT_DEALER_MARGINS.HSD,
+    CNG: dealerMargins?.CNG ?? DEFAULT_DEALER_MARGINS.CNG
+  });
   const [newExpenseModal, setNewExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
     category: 'Electricity & DG Backup',
@@ -45,40 +50,43 @@ export default function DealerMarginView() {
   });
 
   // Dynamic Calculation of Overheads
-  // 1. Dynamic Card MDR Fees (0.20% on all card payments)
-  const cardTxnTotal = transactions
+  const txns = Array.isArray(transactions) ? transactions : [];
+  const cardTxnTotal = txns
     .filter(t => t.paymentMode === 'CARD')
     .reduce((acc, t) => acc + (t.totalAmount || 0), 0);
   const dynamicMdrFee = Math.round(cardTxnTotal * 0.0020);
 
-  // 2. Dynamic Evaporation & Transit Loss Cost (based on decantation shortage liters)
-  const decantationShortageLiters = decantations.reduce((acc, d) => acc + (d.shortageLiters || 0), 0);
+  const decs = Array.isArray(decantations) ? decantations : [];
+  const decantationShortageLiters = decs.reduce((acc, d) => acc + (d.shortageLiters || 0), 0);
   const dynamicEvaporationCost = Math.round(decantationShortageLiters * 95) || 580;
 
-  // 3. Recorded Forecourt Expenses from live database
-  const recordedExpensesTotal = forecourtExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+  const expenses = Array.isArray(forecourtExpenses) ? forecourtExpenses : [];
+  const recordedExpensesTotal = expenses.reduce((acc, e) => acc + (e.amount || 0), 0);
 
-  // Total Live Overheads
   const totalOverheads = recordedExpensesTotal + dynamicMdrFee + dynamicEvaporationCost;
 
-  // Compute live profit report
-  const profitReport = calculateDealerProfitAndMargin(transactions, dealerMargins, totalOverheads);
+  const margins = dealerMargins || DEFAULT_DEALER_MARGINS;
+  const profitReport = calculateDealerProfitAndMargin(txns, margins, totalOverheads);
 
   const handleSaveMargins = (e) => {
     e.preventDefault();
-    updateDealerMargins(tempMargins);
+    if (updateDealerMargins) {
+      updateDealerMargins(tempMargins);
+    }
     setEditingMargins(false);
   };
 
   const handleAddExpense = (e) => {
     e.preventDefault();
     if (!expenseForm.amount || parseFloat(expenseForm.amount) <= 0) return;
-    recordExpense({
-      category: expenseForm.category,
-      amount: parseFloat(expenseForm.amount),
-      paidTo: expenseForm.paidTo || 'Station Operational Vendor',
-      approvedBy: expenseForm.approvedBy
-    });
+    if (recordExpense) {
+      recordExpense({
+        category: expenseForm.category,
+        amount: parseFloat(expenseForm.amount),
+        paidTo: expenseForm.paidTo || 'Station Operational Vendor',
+        approvedBy: expenseForm.approvedBy
+      });
+    }
     setExpenseForm({
       category: 'Staff Tea & Snacks',
       amount: '',
@@ -136,7 +144,7 @@ export default function DealerMarginView() {
         <div className="glass-card" style={{ padding: '18px', borderLeft: '4px solid #38bdf8' }}>
           <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Total Fuel Dispensed</div>
           <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
-            {profitReport.totalLiters.toFixed(2)} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>L</span>
+            {Number(profitReport?.totalLiters ?? profitReport?.totalFuelVolumeLiters ?? 0).toFixed(2)} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>L</span>
           </div>
           <div style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '4px' }}>Across MS, HSD, XP95, CNG</div>
         </div>
@@ -144,7 +152,7 @@ export default function DealerMarginView() {
         <div className="glass-card" style={{ padding: '18px', borderLeft: '4px solid #fbbf24' }}>
           <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Gross Commission Earned</div>
           <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#fbbf24', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
-            ₹{profitReport.grossCommission.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            ₹{Number(profitReport?.grossCommission ?? profitReport?.grossDealerMargin ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>Pre-overhead dealer revenue</div>
         </div>
@@ -152,7 +160,7 @@ export default function DealerMarginView() {
         <div className="glass-card" style={{ padding: '18px', borderLeft: '4px solid #f87171' }}>
           <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Live Operating Overheads</div>
           <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f87171', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
-            -₹{totalOverheads.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            -₹{Number(totalOverheads || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>Forecourt + MDR Fee + Evaporation</div>
         </div>
@@ -160,10 +168,10 @@ export default function DealerMarginView() {
         <div className="glass-card" style={{ padding: '18px', borderLeft: '4px solid #34d399', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)' }}>
           <div style={{ fontSize: '0.72rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 800 }}>Net Daily Profit & Blended Rate</div>
           <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#34d399', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
-            ₹{profitReport.netProfit.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            ₹{Number(profitReport?.netProfit ?? profitReport?.netDealerProfit ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#a7f3d0', fontWeight: 700, marginTop: '4px' }}>
-            ⚡ Blended Margin: ₹{profitReport.blendedMarginPerLiter.toFixed(2)} / Liter
+            ⚡ Blended Margin: ₹{Number(profitReport?.blendedMarginPerLiter ?? profitReport?.blendedNetMarginPerLiter ?? 0).toFixed(2)} / Liter
           </div>
         </div>
 
@@ -254,21 +262,22 @@ export default function DealerMarginView() {
                 </tr>
               </thead>
               <tbody>
-                {profitReport.items.map(item => {
-                  const share = profitReport.grossCommission > 0 ? ((item.marginEarned / profitReport.grossCommission) * 100).toFixed(1) : 0;
+                {(profitReport?.items || []).map(item => {
+                  const gross = Number(profitReport?.grossCommission || profitReport?.grossDealerMargin || 1);
+                  const share = gross > 0 ? (((item.marginEarned || 0) / gross) * 100).toFixed(1) : 0;
                   return (
                     <tr key={item.fuelCode} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <td style={{ padding: '12px 8px', fontWeight: 800, color: '#ffffff' }}>
                         {item.fuelCode}
                       </td>
                       <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                        {item.liters.toFixed(2)}
+                        {Number(item.liters || 0).toFixed(2)}
                       </td>
                       <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 700 }}>
-                        ₹{item.marginPerLiter.toFixed(2)} / L
+                        ₹{Number(item.marginPerLiter || 0).toFixed(2)} / L
                       </td>
                       <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#34d399' }}>
-                        ₹{item.marginEarned.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        ₹{Number(item.marginEarned || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </td>
                       <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                         {share}%
@@ -303,7 +312,7 @@ export default function DealerMarginView() {
                 <CreditCard size={14} color="#a78bfa" /> EDC Card Machine Fees (0.20% MDR)
               </div>
               <strong style={{ fontFamily: 'var(--font-mono)', color: '#f87171' }}>
-                ₹{dynamicMdrFee.toLocaleString('en-IN')}
+                ₹{Number(dynamicMdrFee || 0).toLocaleString('en-IN')}
               </strong>
             </div>
 
@@ -312,12 +321,12 @@ export default function DealerMarginView() {
                 <Droplet size={14} color="#f87171" /> Evaporation & Handling Loss
               </div>
               <strong style={{ fontFamily: 'var(--font-mono)', color: '#f87171' }}>
-                ₹{dynamicEvaporationCost.toLocaleString('en-IN')}
+                ₹{Number(dynamicEvaporationCost || 0).toLocaleString('en-IN')}
               </strong>
             </div>
 
             {/* Live Forecourt Expenses */}
-            {forecourtExpenses.map((exp) => (
+            {expenses.map((exp) => (
               <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
                 <div>
                   <div style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>{exp.category}</div>
@@ -332,7 +341,7 @@ export default function DealerMarginView() {
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>Total Daily Overheads:</span>
               <strong style={{ fontSize: '1.15rem', color: '#f87171', fontFamily: 'var(--font-mono)' }}>
-                ₹{totalOverheads.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                ₹{Number(totalOverheads || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </strong>
             </div>
           </div>

@@ -18,7 +18,7 @@ import {
   Layers,
   FileSpreadsheet
 } from 'lucide-react';
-import { calculateLfrRecovery, calculateSection194Q } from '../utils/petroleumTaxEngine';
+import { calculateLfrRecovery, calculateSection194Q, DEFAULT_LFR_RATES } from '../utils/petroleumTaxEngine';
 
 export default function TaxComplianceView() {
   const { 
@@ -32,11 +32,12 @@ export default function TaxComplianceView() {
   } = useApp();
 
   // Calculate live decanted inward purchases value
-  const decantedInwardsTotal = decantations.reduce((sum, d) => {
+  const decs = Array.isArray(decantations) ? decantations : [];
+  const decantedInwardsTotal = decs.reduce((sum, d) => {
     const estRate = d.fuelCode === 'MS' ? 92.50 : 81.20;
-    return sum + (d.invoicedQty * estRate);
+    return sum + (Number(d.invoicedQty || 0) * estRate);
   }, 0);
-  const baselinePurchases = stationInfo.fyPurchasesOMC || 18450000;
+  const baselinePurchases = stationInfo?.fyPurchasesOMC || 18450000;
   const liveTotalPurchases = baselinePurchases + decantedInwardsTotal;
 
   const [activeTab, setActiveTab] = useState('194Q'); // '194Q' or 'LFR' or '194C'
@@ -44,42 +45,51 @@ export default function TaxComplianceView() {
   const [hasHigherRate206AB, setHasHigherRate206AB] = useState(false);
   const [editingLfr, setEditingLfr] = useState(false);
   const [customLfrRates, setCustomLfrRates] = useState({
-    msPerKL: lfrRates.msPerKL || 382,
-    hsdPerKL: lfrRates.hsdPerKL || 280,
-    cngPerKG: lfrRates.cngPerKG || 0.45
+    msPerKL: lfrRates?.msPerKL ?? lfrRates?.MS ?? DEFAULT_LFR_RATES.MS,
+    hsdPerKL: lfrRates?.hsdPerKL ?? lfrRates?.HSD ?? DEFAULT_LFR_RATES.HSD,
+    cngPerKG: lfrRates?.cngPerKG ?? lfrRates?.CNG ?? DEFAULT_LFR_RATES.CNG
   });
 
+  const txns = Array.isArray(transactions) ? transactions : [];
   // Calculate live tax data
-  const lfrData = calculateLfrRecovery(transactions, customLfrRates);
+  const lfrData = calculateLfrRecovery(txns, customLfrRates);
   const tax194Q = calculateSection194Q(parseFloat(fyPurchasesInput) || 0, hasHigherRate206AB);
 
   const handleSaveLfrRates = (e) => {
     e.preventDefault();
-    updateLfrRates(customLfrRates);
+    if (updateLfrRates) {
+      updateLfrRates(customLfrRates);
+    }
     setEditingLfr(false);
   };
 
   const downloadTaxAuditSummary = () => {
+    const dealership = stationInfo?.dealership || 'IOCL';
+    const roCode = stationInfo?.roCode || 'RO-DEFAULT';
+    const gstin = stationInfo?.gstin || '';
+    const pan = stationInfo?.pan || '';
+    const tan = stationInfo?.tan || '';
+
     const csvContent = "data:text/csv;charset=utf-8," + 
       `SHREE VINAYAKA PETROSOFT - STATUTORY TAX AUDIT REPORT\n` +
       `Date,${new Date().toISOString().slice(0, 10)}\n` +
-      `OMC,${stationInfo.dealership} (${stationInfo.roCode})\n` +
-      `GSTIN,${stationInfo.gstin},PAN,${stationInfo.pan},TAN,${stationInfo.tan}\n\n` +
+      `OMC,${dealership} (${roCode})\n` +
+      `GSTIN,${gstin},PAN,${pan},TAN,${tan}\n\n` +
       `--- SECTION 194Q PURCHASE TDS REPORT ---\n` +
-      `Cumulative FY Purchases (OMC),Rs. ${tax194Q.fyPurchases.toFixed(2)}\n` +
-      `Statutory Threshold Limit,Rs. ${tax194Q.thresholdLimit.toFixed(2)}\n` +
-      `Taxable Base for 194Q,Rs. ${tax194Q.taxableBase.toFixed(2)}\n` +
-      `Applicable TDS Rate,${tax194Q.tdsRate}%\n` +
-      `Total TDS Deducted,Rs. ${tax194Q.tdsAmount.toFixed(2)}\n` +
-      `TDS Challan Type,${tax194Q.challanType} - Minor Head 200\n` +
-      `Quarterly Form,${tax194Q.quarterlyForm}\n\n` +
+      `Cumulative FY Purchases (OMC),Rs. ${Number(tax194Q?.fyPurchases || tax194Q?.newCumulativePurchases || 0).toFixed(2)}\n` +
+      `Statutory Threshold Limit,Rs. ${Number(tax194Q?.thresholdLimit || 5000000).toFixed(2)}\n` +
+      `Taxable Base for 194Q,Rs. ${Number(tax194Q?.taxableBase || tax194Q?.cumulativeTaxableYtd || 0).toFixed(2)}\n` +
+      `Applicable TDS Rate,${tax194Q?.tdsRate || 0.1}%\n` +
+      `Total TDS Deducted,Rs. ${Number(tax194Q?.tdsAmount || tax194Q?.cumulativeTdsYtd || 0).toFixed(2)}\n` +
+      `TDS Challan Type,${tax194Q?.challanType || 'ITNS 281'} - Minor Head 200\n` +
+      `Quarterly Form,${tax194Q?.quarterlyForm || 'Form 26Q'}\n\n` +
       `--- OMC LFR (LICENSE FEE RECOVERY) REPORT ---\n` +
-      `Total MS Volume,${lfrData.msLiters.toFixed(2)} L (${lfrData.msKL.toFixed(3)} KL) @ Rs. ${lfrData.msRate}/KL = Rs. ${lfrData.msBaseLfr.toFixed(2)}\n` +
-      `Total HSD Volume,${lfrData.hsdLiters.toFixed(2)} L (${lfrData.hsdKL.toFixed(3)} KL) @ Rs. ${lfrData.hsdRate}/KL = Rs. ${lfrData.hsdBaseLfr.toFixed(2)}\n` +
-      `Total Base LFR Recovery,Rs. ${lfrData.totalBaseLfr.toFixed(2)}\n` +
-      `GST @ 18% on LFR,Rs. ${lfrData.gstOnLfr.toFixed(2)}\n` +
-      `Gross LFR Invoice Deduction,Rs. ${lfrData.grossLfrWithGst.toFixed(2)}\n` +
-      `Section 194C / 194-I TDS on LFR,Rs. ${lfrData.tdsOnLfr.toFixed(2)}\n`;
+      `Total MS Volume,${Number(lfrData?.msLiters || 0).toFixed(2)} L (${Number(lfrData?.msKL || 0).toFixed(3)} KL) @ Rs. ${lfrData?.msRate || 460}/KL = Rs. ${Number(lfrData?.msBaseLfr || 0).toFixed(2)}\n` +
+      `Total HSD Volume,${Number(lfrData?.hsdLiters || 0).toFixed(2)} L (${Number(lfrData?.hsdKL || 0).toFixed(3)} KL) @ Rs. ${lfrData?.hsdRate || 390}/KL = Rs. ${Number(lfrData?.hsdBaseLfr || 0).toFixed(2)}\n` +
+      `Total Base LFR Recovery,Rs. ${Number(lfrData?.totalBaseLfr || 0).toFixed(2)}\n` +
+      `GST @ 18% on LFR,Rs. ${Number(lfrData?.gstOnLfr || 0).toFixed(2)}\n` +
+      `Gross LFR Invoice Deduction,Rs. ${Number(lfrData?.grossLfrWithGst || 0).toFixed(2)}\n` +
+      `Section 194C / 194-I TDS on LFR,Rs. ${Number(lfrData?.tdsOnLfr || 0).toFixed(2)}\n`;
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -109,32 +119,30 @@ export default function TaxComplianceView() {
               </span>
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-              Section 194Q TDS on OMC Purchases • License Fee Recovery (LFR) • Sections 194C / 194-I / 206C(1H)
+              Section 194Q Purchase Tax Audit • OMC License Fee Recovery (LFR) • Transporter Section 194C Guidelines
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={downloadTaxAuditSummary}
-            className="btn-action-green"
-            style={{ fontSize: '0.82rem' }}
-          >
-            <Download size={15} /> Export CA Audit Tax CSV
-          </button>
-        </div>
+        <button
+          onClick={downloadTaxAuditSummary}
+          className="btn-action-green"
+          style={{ fontSize: '0.85rem' }}
+        >
+          <Download size={16} /> Download Tax Audit CSV
+        </button>
       </div>
 
-      {/* Tabs Switcher */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+      {/* Compliance Tab Switcher */}
+      <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '4px' }}>
         <button
           onClick={() => setActiveTab('194Q')}
           style={{
             padding: '10px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === '194Q' ? 'rgba(168, 85, 247, 0.25)' : 'rgba(255,255,255,0.03)',
+            background: activeTab === '194Q' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
             color: activeTab === '194Q' ? '#c084fc' : 'var(--text-muted)',
+            borderRadius: '8px 8px 0 0',
+            border: 'none',
             fontWeight: 800,
             fontSize: '0.85rem',
             cursor: 'pointer',
@@ -144,17 +152,17 @@ export default function TaxComplianceView() {
             borderBottom: activeTab === '194Q' ? '2px solid #a855f7' : 'none'
           }}
         >
-          <Calculator size={16} /> Section 194Q TDS (0.1% OMC Purchase Tax)
+          <Calculator size={16} /> Section 194Q (0.1% Purchase Tax)
         </button>
 
         <button
           onClick={() => setActiveTab('LFR')}
           style={{
             padding: '10px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'LFR' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.03)',
+            background: activeTab === 'LFR' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
             color: activeTab === 'LFR' ? '#38bdf8' : 'var(--text-muted)',
+            borderRadius: '8px 8px 0 0',
+            border: 'none',
             fontWeight: 800,
             fontSize: '0.85rem',
             cursor: 'pointer',
@@ -164,17 +172,17 @@ export default function TaxComplianceView() {
             borderBottom: activeTab === 'LFR' ? '2px solid #38bdf8' : 'none'
           }}
         >
-          <Building2 size={16} /> OMC License Fee Recovery (LFR) Engine
+          <Building2 size={16} /> OMC License Fee Recovery (LFR)
         </button>
 
         <button
           onClick={() => setActiveTab('194C')}
           style={{
             padding: '10px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === '194C' ? 'rgba(52, 211, 153, 0.25)' : 'rgba(255,255,255,0.03)',
+            background: activeTab === '194C' ? 'rgba(52, 211, 153, 0.15)' : 'transparent',
             color: activeTab === '194C' ? '#34d399' : 'var(--text-muted)',
+            borderRadius: '8px 8px 0 0',
+            border: 'none',
             fontWeight: 800,
             fontSize: '0.85rem',
             cursor: 'pointer',
@@ -262,8 +270,8 @@ export default function TaxComplianceView() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Threshold Status:</span>
-                    <strong style={{ color: tax194Q.thresholdBreached ? '#ef4444' : '#34d399' }}>
-                      {tax194Q.thresholdBreached ? 'EXCEEDED (194Q ACTIVE)' : 'WITHIN THRESHOLD'}
+                    <strong style={{ color: tax194Q?.thresholdBreached ? '#ef4444' : '#34d399' }}>
+                      {tax194Q?.thresholdBreached ? 'EXCEEDED (194Q ACTIVE)' : 'WITHIN THRESHOLD'}
                     </strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -284,42 +292,42 @@ export default function TaxComplianceView() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                   <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Cumulative FY Purchases:</span>
                   <strong style={{ fontSize: '0.95rem', fontFamily: 'var(--font-mono)', color: '#ffffff' }}>
-                    ₹{tax194Q.fyPurchases.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ₹{Number(tax194Q?.fyPurchases ?? tax194Q?.newCumulativePurchases ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </strong>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                   <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Less: Statutory Exemption:</span>
                   <strong style={{ fontSize: '0.95rem', fontFamily: 'var(--font-mono)', color: '#34d399' }}>
-                    -₹{tax194Q.thresholdLimit.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    -₹{Number(tax194Q?.thresholdLimit ?? 5000000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </strong>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                   <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Taxable Base for 194Q:</span>
                   <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: '#fbbf24' }}>
-                    ₹{tax194Q.taxableBase.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ₹{Number(tax194Q?.taxableBase ?? tax194Q?.cumulativeTaxableYtd ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </strong>
                 </div>
 
                 <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.15)', border: '1px solid #a855f7', textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: '#c084fc', textTransform: 'uppercase', fontWeight: 700 }}>
-                    TDS TO BE DEDUCTED & DEPOSITED ({tax194Q.tdsRate}%)
+                    TDS TO BE DEDUCTED & DEPOSITED ({tax194Q?.tdsRate ?? 0.1}%)
                   </div>
                   <div style={{ fontSize: '2rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)', margin: '6px 0' }}>
-                    ₹{tax194Q.tdsAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ₹{Number(tax194Q?.tdsAmount ?? tax194Q?.cumulativeTdsYtd ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </div>
                   <div style={{ fontSize: '0.72rem', color: '#e2e8f0' }}>
-                    Deposit via <strong>Challan ITNS 281</strong> • Minor Head 200 (TDS Payable by Assessee)
+                    Deposit via <strong>{tax194Q?.challanType || 'ITNS 281'}</strong> • Minor Head 200 (TDS Payable by Assessee)
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
                   <div style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '6px' }}>
-                    Next Due Date: <strong style={{ color: '#ffffff' }}>{tax194Q.nextDueDate}</strong>
+                    Next Due Date: <strong style={{ color: '#ffffff' }}>{tax194Q?.nextDueDate || '07th of Next Month'}</strong>
                   </div>
                   <div style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '6px' }}>
-                    Quarterly Return: <strong style={{ color: '#ffffff' }}>Form 26Q</strong>
+                    Quarterly Return: <strong style={{ color: '#ffffff' }}>{tax194Q?.quarterlyForm || 'Form 26Q'}</strong>
                   </div>
                 </div>
               </div>
@@ -338,7 +346,7 @@ export default function TaxComplianceView() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '0.72rem', color: '#a855f7', background: 'rgba(168, 85, 247, 0.15)', padding: '4px 8px', borderRadius: '4px', fontWeight: 700 }}>
-                  {decantations.length} RECORDED TT DELIVERIES (₹{decantedInwardsTotal.toLocaleString('en-IN')} TOTAL)
+                  {decs.length} RECORDED TT DELIVERIES (₹{decantedInwardsTotal.toLocaleString('en-IN')} TOTAL)
                 </span>
                 <button
                   type="button"
@@ -366,9 +374,9 @@ export default function TaxComplianceView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {decantations.map(dec => {
+                  {decs.map(dec => {
                     const estRate = dec.fuelCode === 'MS' ? 92.50 : 81.20;
-                    const estValue = dec.invoicedQty * estRate;
+                    const estValue = Number(dec.invoicedQty || 0) * estRate;
                     const decTds = estValue * 0.001; // 0.1% TDS
                     return (
                       <tr key={dec.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -385,7 +393,7 @@ export default function TaxComplianceView() {
                           {dec.fuelCode} ({dec.fuelName})
                         </td>
                         <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                          {dec.invoicedQty.toLocaleString('en-IN')} L
+                          {Number(dec.invoicedQty || 0).toLocaleString('en-IN')} L
                         </td>
                         <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fbbf24' }}>
                           ₹{estValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
@@ -491,17 +499,17 @@ export default function TaxComplianceView() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>MS Petrol LFR:</span>
-                    <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>₹{customLfrRates.msPerKL.toFixed(2)} / KL</strong>
+                    <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>₹{Number(customLfrRates.msPerKL || 460).toFixed(2)} / KL</strong>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>HSD Diesel LFR:</span>
-                    <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>₹{customLfrRates.hsdPerKL.toFixed(2)} / KL</strong>
+                    <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>₹{Number(customLfrRates.hsdPerKL || 390).toFixed(2)} / KL</strong>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>CNG Gas LFR:</span>
-                    <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>₹{customLfrRates.cngPerKG.toFixed(2)} / KG</strong>
+                    <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>₹{Number(customLfrRates.cngPerKG || 0.45).toFixed(2)} / KG</strong>
                   </div>
 
                   <div style={{ padding: '10px', borderRadius: '8px', background: 'rgba(2, 6, 23, 0.5)', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
@@ -520,24 +528,24 @@ export default function TaxComplianceView() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>MS Volume Dispensed:</span>
-                  <strong style={{ fontFamily: 'var(--font-mono)' }}>{lfrData.msLiters.toFixed(2)} L ({lfrData.msKL.toFixed(3)} KL) = ₹{lfrData.msBaseLfr.toFixed(2)}</strong>
+                  <strong style={{ fontFamily: 'var(--font-mono)' }}>{Number(lfrData?.msLiters || 0).toFixed(2)} L ({Number(lfrData?.msKL || 0).toFixed(3)} KL) = ₹{Number(lfrData?.msBaseLfr || 0).toFixed(2)}</strong>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>HSD Volume Dispensed:</span>
-                  <strong style={{ fontFamily: 'var(--font-mono)' }}>{lfrData.hsdLiters.toFixed(2)} L ({lfrData.hsdKL.toFixed(3)} KL) = ₹{lfrData.hsdBaseLfr.toFixed(2)}</strong>
+                  <strong style={{ fontFamily: 'var(--font-mono)' }}>{Number(lfrData?.hsdLiters || 0).toFixed(2)} L ({Number(lfrData?.hsdKL || 0).toFixed(3)} KL) = ₹{Number(lfrData?.hsdBaseLfr || 0).toFixed(2)}</strong>
                 </div>
 
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                   <span style={{ color: '#ffffff' }}>Base LFR Recovery:</span>
-                  <strong style={{ fontFamily: 'var(--font-mono)', color: '#fbbf24' }}>₹{lfrData.totalBaseLfr.toFixed(2)}</strong>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: '#fbbf24' }}>₹{Number(lfrData?.totalBaseLfr || 0).toFixed(2)}</strong>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                   <span style={{ color: '#ffffff' }}>Add: 18% GST (CGST 9% + SGST 9%):</span>
-                  <strong style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>+₹{lfrData.gstOnLfr.toFixed(2)}</strong>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>+₹{Number(lfrData?.gstOnLfr || 0).toFixed(2)}</strong>
                 </div>
 
                 <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid #38bdf8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -546,8 +554,13 @@ export default function TaxComplianceView() {
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Eligible for full 18% GST Input Tax Credit</div>
                   </div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
-                    ₹{lfrData.grossLfrWithGst.toFixed(2)}
+                    ₹{Number(lfrData?.grossLfrWithGst || 0).toFixed(2)}
                   </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-dim)', paddingTop: '6px' }}>
+                  <span>TDS Deductible u/s 194C / 194-I (if contractual):</span>
+                  <strong style={{ color: '#34d399' }}>₹{Number(lfrData?.tdsOnLfr || 0).toFixed(2)}</strong>
                 </div>
               </div>
             </div>

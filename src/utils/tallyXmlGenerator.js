@@ -29,15 +29,29 @@ function escapeXml(unsafe = '') {
 /**
  * Generate full Tally Prime standard XML envelope
  */
-export function generateTallyPrimeXml({
-  stationInfo,
-  transactions = [],
-  decantations = [],
-  fleetAccounts = [],
-  currentShift = {},
-  forecourtExpenses = [],
-  date = '2026-10-08'
-}) {
+export function generateTallyPrimeXml(arg1 = {}, arg2 = {}) {
+  let stationInfo = {};
+  let transactions = [];
+  let decantations = [];
+  let fleetAccounts = [];
+  let currentShift = {};
+  let forecourtExpenses = [];
+  let date = '2026-10-08';
+
+  if (Array.isArray(arg1)) {
+    transactions = arg1;
+    stationInfo = (typeof arg2 === 'object' && arg2 !== null) ? arg2 : {};
+  } else if (typeof arg1 === 'object' && arg1 !== null) {
+    stationInfo = arg1.stationInfo || {};
+    transactions = arg1.transactions || [];
+    decantations = arg1.decantations || [];
+    fleetAccounts = arg1.fleetAccounts || [];
+    currentShift = arg1.currentShift || {};
+    forecourtExpenses = arg1.forecourtExpenses || [];
+    date = arg1.date || '2026-10-08';
+  }
+
+  const companyName = (stationInfo && stationInfo.name) ? stationInfo.name : 'SHREE VINAYAKA PETROSOFT FUEL JUNCTION';
   const tallyDate = toTallyDate(date);
   let xml = `<?xml version="1.0" encoding="utf-8"?>
 <ENVELOPE>
@@ -49,7 +63,7 @@ export function generateTallyPrimeXml({
       <REQUESTDESC>
         <REPORTNAME>Vouchers</REPORTNAME>
         <STATICVARIABLES>
-          <SVCURRENTCOMPANY>${escapeXml(stationInfo.name || 'SHREE VINAYAKA PETROSOFT')}</SVCURRENTCOMPANY>
+          <SVCURRENTCOMPANY>${escapeXml(companyName)}</SVCURRENTCOMPANY>
         </STATICVARIABLES>
       </REQUESTDESC>
       <REQUESTDATA>
