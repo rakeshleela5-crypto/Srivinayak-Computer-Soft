@@ -3,6 +3,11 @@
 -- Compliant with Petroleum Ministry, W&M, and OMC Guidelines (IOCL / BPCL / HPCL)
 
 -- Clean Migration: Drop existing tables to ensure complete column alignment
+DROP TABLE IF EXISTS transfers;
+DROP TABLE IF EXISTS cheque_returns;
+DROP TABLE IF EXISTS stamping_register;
+DROP TABLE IF EXISTS dip_register;
+DROP TABLE IF EXISTS staff_advances;
 DROP TABLE IF EXISTS forecourt_coordination_logs;
 DROP TABLE IF EXISTS morning_density_logs;
 DROP TABLE IF EXISTS calibration_tests;
@@ -195,12 +200,13 @@ CREATE TABLE IF NOT EXISTS transactions (
   FOREIGN KEY (nozzle_id) REFERENCES nozzles(nozzle_id)
 );
 
--- 10. Inward Tanker Decantations (TT Inward Register)
+-- 10. Inward Tanker Decantations (TT Inward Register & Decantation Audit)
 CREATE TABLE IF NOT EXISTS inward_stock (
   delivery_id TEXT PRIMARY KEY,
   invoice_no TEXT NOT NULL,
   tanker_tt_no TEXT NOT NULL,
   driver_name TEXT,
+  dealer_name TEXT DEFAULT 'BHARAT PETROLEUM CO LTD',
   tank_id TEXT NOT NULL,
   fuel_code TEXT NOT NULL,
   fuel_name TEXT,
@@ -215,6 +221,27 @@ CREATE TABLE IF NOT EXISTS inward_stock (
   observed_density REAL NOT NULL,
   converted_density_15c REAL NOT NULL,
   density_variance REAL NOT NULL,
+  -- Security Wooden Seals
+  wood_seal_1 TEXT,
+  wood_seal_2 TEXT,
+  wood_seal_3 TEXT,
+  wood_seal_4 TEXT,
+  -- Security Aluminum Seals
+  alum_seal_1 TEXT,
+  alum_seal_2 TEXT,
+  alum_seal_3 TEXT,
+  alum_seal_4 TEXT,
+  -- Inward Tax Breakdown
+  basic_rate REAL DEFAULT 0.0,
+  basic_amount REAL DEFAULT 0.0,
+  basic_excise REAL DEFAULT 0.0,
+  add_excise REAL DEFAULT 0.0,
+  vat_rate REAL DEFAULT 14.9,
+  vat_amount REAL DEFAULT 0.0,
+  cess REAL DEFAULT 0.0,
+  tcs REAL DEFAULT 0.0,
+  freight REAL DEFAULT 0.0,
+  final_amount REAL DEFAULT 0.0,
   status TEXT DEFAULT 'VERIFIED_OK', -- 'VERIFIED_OK' | 'VARIANCE_FLAGGED'
   verified_by TEXT NOT NULL,
   delivery_date DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -224,15 +251,29 @@ CREATE TABLE IF NOT EXISTS inward_stock (
 -- 11. B2B Fleet Khata Credit Accounts
 CREATE TABLE IF NOT EXISTS credit_accounts (
   customer_id TEXT PRIMARY KEY,
+  customer_code INTEGER,
   company_name TEXT NOT NULL,
   contact_person TEXT,
   phone TEXT,
+  address TEXT,
+  city TEXT DEFAULT 'Bangalore',
+  state TEXT DEFAULT 'Karnataka',
   gstin TEXT,
+  pan_no TEXT,
+  ndc_required INTEGER DEFAULT 0,
+  is_b2c INTEGER DEFAULT 0,
+  tds_apply INTEGER DEFAULT 1,
+  is_tanker INTEGER DEFAULT 0,
+  is_blocked INTEGER DEFAULT 0,
+  bill_period TEXT DEFAULT '30 day',
+  driver_pin TEXT DEFAULT '0000',
   credit_limit REAL NOT NULL,
+  opening_balance REAL DEFAULT 0.0,
   current_balance REAL DEFAULT 0.0,
   billing_cycle TEXT DEFAULT 'Monthly',
   payment_terms_days INTEGER DEFAULT 15,
   discount_per_liter REAL DEFAULT 0.0,
+  charge_pct REAL DEFAULT 0.0,
   hard_lock_enabled INTEGER DEFAULT 1,
   allow_cash_advance INTEGER DEFAULT 1,
   max_cash_advance REAL DEFAULT 2000.0,
@@ -436,6 +477,83 @@ CREATE TABLE IF NOT EXISTS forecourt_coordination_logs (
   completed_checklist_json TEXT,
   status TEXT DEFAULT 'ACTIVE',
   supervisor TEXT NOT NULL
+);
+
+-- 26. Contra Transfers & Inter-Account Vouchers
+CREATE TABLE IF NOT EXISTS transfers (
+  transfer_id TEXT PRIMARY KEY,
+  date DATE NOT NULL,
+  shift TEXT DEFAULT 'First',
+  voucher_type TEXT NOT NULL, -- 'Receipt Cash Voucher(Cash Deposit)', 'Payment Voucher', 'Contra Voucher'
+  from_account TEXT NOT NULL,
+  to_account TEXT NOT NULL,
+  amount REAL NOT NULL,
+  narration TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 27. Cheque Bounce & Returns Audit Register
+CREATE TABLE IF NOT EXISTS cheque_returns (
+  id TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL,
+  customer_name TEXT NOT NULL,
+  receipt_no TEXT,
+  cheque_no TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  amount REAL NOT NULL,
+  return_date DATE NOT NULL,
+  penalty_charges REAL DEFAULT 350.0,
+  reason TEXT,
+  status TEXT DEFAULT 'BOUNCED',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 28. Legal Metrology / Weights & Measures Dispenser Stamping Register
+CREATE TABLE IF NOT EXISTS stamping_register (
+  id TEXT PRIMARY KEY,
+  nozzle_id TEXT NOT NULL,
+  nozzle_name TEXT NOT NULL,
+  dispenser_name TEXT NOT NULL,
+  last_stamped_date DATE NOT NULL,
+  expiry_date DATE NOT NULL,
+  days_left INTEGER,
+  certificate_no TEXT,
+  inspector_name TEXT,
+  status TEXT DEFAULT 'VALID'
+);
+
+-- 29. Physical Tank Dip & OMC Loss Tolerance Register
+CREATE TABLE IF NOT EXISTS dip_register (
+  id TEXT PRIMARY KEY,
+  date DATE NOT NULL,
+  shift TEXT DEFAULT 'First',
+  tank_id TEXT NOT NULL,
+  fuel_code TEXT NOT NULL,
+  opening_dip REAL NOT NULL,
+  opening_stock REAL NOT NULL,
+  receipt_qty REAL DEFAULT 0.0,
+  closing_dip REAL NOT NULL,
+  closing_stock REAL NOT NULL,
+  dip_sale REAL NOT NULL,
+  meter_sale REAL NOT NULL,
+  variation REAL NOT NULL,
+  allowable_limit REAL NOT NULL,
+  status TEXT DEFAULT 'OK',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 30. Forecourt Staff Counter Advance (Upaad) Register
+CREATE TABLE IF NOT EXISTS staff_advances (
+  id TEXT PRIMARY KEY,
+  staff_id TEXT NOT NULL,
+  staff_name TEXT NOT NULL,
+  date DATE NOT NULL,
+  shift TEXT DEFAULT 'First',
+  advance_amount REAL NOT NULL,
+  reason TEXT,
+  recovered_amount REAL DEFAULT 0.0,
+  balance_pending REAL NOT NULL,
+  status TEXT DEFAULT 'PENDING'
 );
 
 -- Performance Indices for Real-Time Edge Routing

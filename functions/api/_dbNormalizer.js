@@ -320,3 +320,25 @@ export function normalizeDecantation(row) {
     date: row.delivery_date || row.date || new Date().toISOString()
   };
 }
+
+// Generic Dual-Key Row Normalizer
+export function normalizeDbRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  const normalized = { ...row };
+  for (const [key, val] of Object.entries(row)) {
+    const camelKey = key.replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+    if (camelKey !== key && !(camelKey in normalized)) {
+      normalized[camelKey] = val;
+    }
+    const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snakeKey !== key && !(snakeKey in normalized)) {
+      normalized[snakeKey] = val;
+    }
+  }
+  return normalized;
+}
+
+export function normalizeDbRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(normalizeDbRow);
+}

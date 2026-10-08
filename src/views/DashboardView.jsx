@@ -21,11 +21,30 @@ import {
   Radio,
   Volume2,
   VolumeX,
-  Eye
+  Eye,
+  ArrowLeftRight,
+  Database,
+  Users2,
+  FileSpreadsheet,
+  BookOpen,
+  ShieldCheck,
+  MessageSquare
 } from 'lucide-react';
 import { audioFX } from '../utils/audioFX';
 
-export default function DashboardView() {
+export default function DashboardView({
+  onOpenCreditSale,
+  onOpenCustomerMaster,
+  onOpenPaymentReceipt,
+  onOpenTransferEntry,
+  onOpenPurchaseEntry,
+  onOpenDipRegister,
+  onOpenRateMaster,
+  onOpenShiftSettlement,
+  onOpenAttendantHandover,
+  onOpenMasterReports,
+  onOpenStamping
+}) {
   const { 
     stationInfo, 
     fuelPrices, 
@@ -35,6 +54,7 @@ export default function DashboardView() {
     dispensers, 
     currentShift, 
     transactions,
+    fleetAccounts,
     setActiveTab,
     setActiveReceiptModal
   } = useApp();
@@ -94,6 +114,72 @@ export default function DashboardView() {
             <Edit3 size={16} /> Update Daily Rates
           </button>
         </div>
+      </div>
+
+      {/* Fast Desk ERP Action Strip (Matching Video Shortcut Operations) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        overflowX: 'auto',
+        padding: '10px 14px',
+        background: 'rgba(15, 23, 42, 0.7)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,0.06)'
+      }}>
+        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', marginRight: '4px' }}>
+          Fast Desk:
+        </span>
+
+        {[
+          { label: 'Credit Sale', key: 'F1', icon: Truck, onClick: onOpenCreditSale, color: '#fbbf24' },
+          { label: 'Payment Receipt', key: 'F2', icon: CreditCard, onClick: onOpenPaymentReceipt, color: '#34d399' },
+          { label: 'Customer Master', key: 'F3', icon: Users2, onClick: onOpenCustomerMaster, color: '#38bdf8' },
+          { label: 'Rate Master', key: 'F4', icon: TrendingUp, onClick: onOpenRateMaster, color: '#f59e0b' },
+          { label: 'Contra Transfer', key: 'F6', icon: ArrowLeftRight, onClick: onOpenTransferEntry, color: '#a78bfa' },
+          { label: 'Decantation (8 Seals)', key: 'F7', icon: Database, onClick: onOpenPurchaseEntry, color: '#f472b6' },
+          { label: 'Tank Dip Register', key: 'F8', icon: Fuel, onClick: onOpenDipRegister, color: '#10b981' },
+          { label: 'Shift Reconciliation', key: 'F9', icon: FileSpreadsheet, onClick: onOpenShiftSettlement, color: '#e879f9' },
+          { label: '44 Master Reports', key: 'F10', icon: BookOpen, onClick: onOpenMasterReports, color: '#60a5fa' },
+          { label: 'W&M Stamping', key: 'Esc', icon: ShieldCheck, onClick: onOpenStamping, color: '#f87171' }
+        ].map((btn, idx) => {
+          const Icon = btn.icon;
+          return (
+            <button
+              key={idx}
+              onClick={btn.onClick}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: btn.color,
+                padding: '6px 12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.borderColor = btn.color;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+              }}
+            >
+              <Icon size={14} color={btn.color} />
+              <span>{btn.label}</span>
+              <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>
+                {btn.key}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Top 4 Key Telemetry Metrics */}
@@ -642,6 +728,207 @@ export default function DashboardView() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Dual Ledgers Section (Matching Video Frames 003-006): Customer Outstanding & Cash/Bank Books */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', alignItems: 'start' }}>
+        
+        {/* Ledger Panel 1: Credit Customer Outstanding */}
+        <div className="glass-card" style={{ padding: '20px', borderTop: '3px solid #fbbf24' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Truck size={18} color="#fbbf24" /> Credit Customer Outstanding Ledger
+              </h3>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                Live receivables balance, credit limits, and WhatsApp delivery slips
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {onOpenCreditSale && (
+                <button
+                  onClick={onOpenCreditSale}
+                  className="btn-primary"
+                  style={{ padding: '5px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Truck size={13} /> + Credit Bill (F1)
+                </button>
+              )}
+              {onOpenPaymentReceipt && (
+                <button
+                  onClick={onOpenPaymentReceipt}
+                  className="btn-secondary"
+                  style={{ padding: '5px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <CreditCard size={13} /> Settle (F2)
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                  <th style={{ padding: '8px 6px' }}>CUSTOMER / FLEET</th>
+                  <th style={{ padding: '8px 6px' }}>PHONE</th>
+                  <th style={{ padding: '8px 6px' }}>CREDIT LIMIT</th>
+                  <th style={{ padding: '8px 6px' }}>CURRENT BALANCE</th>
+                  <th style={{ padding: '8px 6px' }}>STATUS</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'right' }}>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(fleetAccounts || []).map(fa => {
+                  const bal = fa.currentBalance || 0;
+                  const limit = fa.creditLimit || 500000;
+                  const isOver = bal > limit;
+                  return (
+                    <tr key={fa.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <td style={{ padding: '9px 6px' }}>
+                        <div style={{ fontWeight: 700, color: '#f8fafc' }}>{fa.companyName || fa.name}</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>ID: {fa.id}</div>
+                      </td>
+                      <td style={{ padding: '9px 6px', fontSize: '0.75rem', color: '#cbd5e1' }}>
+                        {fa.phone || '+91 98860 00000'}
+                      </td>
+                      <td style={{ padding: '9px 6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                        ₹{limit.toLocaleString()}
+                      </td>
+                      <td style={{ padding: '9px 6px', fontWeight: 800, fontFamily: 'var(--font-mono)', color: isOver ? '#f87171' : '#fbbf24' }}>
+                        ₹{bal.toLocaleString()} <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Dr</span>
+                      </td>
+                      <td style={{ padding: '9px 6px' }}>
+                        <span style={{
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          background: isOver ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)',
+                          color: isOver ? '#f87171' : '#34d399',
+                          border: isOver ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+                        }}>
+                          {isOver ? 'OVER-LIMIT' : 'ACTIVE'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '9px 6px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                          <button
+                            onClick={() => {
+                              const phoneClean = (fa.phone || '919845012345').replace(/[^0-9]/g, '');
+                              const text = encodeURIComponent(`*SHREE VINAYAKA PETROSOFT AI*\nDear ${fa.companyName || fa.name},\nYour outstanding fuel balance is *Rs. ${bal.toLocaleString()} Dr*.\nPlease arrange settlement at earliest.`);
+                              window.open(`https://wa.me/${phoneClean}?text=${text}`, '_blank');
+                            }}
+                            title="Send WhatsApp Statement"
+                            style={{
+                              background: 'rgba(37, 211, 102, 0.15)',
+                              border: '1px solid rgba(37, 211, 102, 0.3)',
+                              color: '#25d366',
+                              padding: '3px 7px',
+                              borderRadius: '5px',
+                              cursor: 'pointer',
+                              fontSize: '0.72rem',
+                              fontWeight: 700
+                            }}
+                          >
+                            WhatsApp
+                          </button>
+                          {onOpenPaymentReceipt && (
+                            <button
+                              onClick={onOpenPaymentReceipt}
+                              style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: '#f8fafc',
+                                padding: '3px 7px',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem'
+                              }}
+                            >
+                              Pay
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Ledger Panel 2: Cash & Bank Accounts (Contra Ledgers) */}
+        <div className="glass-card" style={{ padding: '20px', borderTop: '3px solid #38bdf8' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Coins size={18} color="#38bdf8" /> Cash & Bank Ledgers
+              </h3>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                Counter cash, current accounts, and OD facilities
+              </div>
+            </div>
+
+            {onOpenTransferEntry && (
+              <button
+                onClick={onOpenTransferEntry}
+                className="btn-primary"
+                style={{ padding: '5px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+              >
+                <ArrowLeftRight size={13} /> Contra (F6)
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {[
+              { id: 'b-1', name: 'Cash on Hand Counter', type: 'Cash A/c', acNo: 'CASH-RO-01', balance: 142500, flag: 'Dr', color: '#10b981' },
+              { id: 'b-2', name: 'State Bank of India (SBI)', type: 'Current A/c', acNo: '30981249821', balance: 489200, flag: 'Dr', color: '#38bdf8' },
+              { id: 'b-3', name: 'HDFC Bank Cash Credit / OD', type: 'OD / CC A/c', acNo: '502000192841', balance: 215000, flag: 'Cr', color: '#f87171' },
+              { id: 'b-4', name: 'ICICI Bank Digital POS Settled', type: 'UPI/Card A/c', acNo: '002905018291', balance: 84350, flag: 'Dr', color: '#a78bfa' }
+            ].map(bank => (
+              <div
+                key={bank.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.82rem' }}>{bank.name}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                    {bank.type} • A/c: {bank.acNo}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', color: bank.color }}>
+                    ₹{bank.balance.toLocaleString()} <span style={{ fontSize: '0.72rem', color: bank.flag === 'Dr' ? '#34d399' : '#f87171' }}>{bank.flag}</span>
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                    {bank.flag === 'Dr' ? 'Available Asset' : 'Overdraft Facility'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Liquid Book Position:</span>
+            <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+              ₹5,01,050.00 <span style={{ fontSize: '0.75rem', color: '#34d399' }}>Dr</span>
+            </span>
+          </div>
+        </div>
+
       </div>
 
       {/* Price Update Modal */}

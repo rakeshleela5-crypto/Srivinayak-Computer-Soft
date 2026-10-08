@@ -139,6 +139,117 @@ export async function onRequestPost(context) {
       });
     }
 
+    // Action 3: Register / Update Customer Master
+    if (action === "REGISTER_CUSTOMER") {
+      const {
+        customerId = `fl-${Date.now().toString().slice(-4)}`,
+        customerCode,
+        companyName,
+        contactPerson = '',
+        phone,
+        address = '',
+        city = 'Bangalore',
+        state = 'Karnataka',
+        gstin = '',
+        panNo = '',
+        ndcRequired = 0,
+        isB2c = 0,
+        tdsApply = 1,
+        isTanker = 0,
+        isBlocked = 0,
+        billPeriod = '30 day',
+        driverPin = '0000',
+        creditLimit = 100000,
+        openingBalance = 0,
+        discountPerLiter = 0,
+        chargePct = 0
+      } = body;
+
+      if (!companyName || !phone) {
+        return Response.json({ success: false, error: "Missing customer name or phone" }, { status: 400 });
+      }
+
+      if (env.DB) {
+        await env.DB.prepare(`
+          INSERT INTO credit_accounts (
+            customer_id, customer_code, company_name, contact_person, phone, address, city, state,
+            gstin, pan_no, ndc_required, is_b2c, tds_apply, is_tanker, is_blocked, bill_period,
+            driver_pin, credit_limit, opening_balance, current_balance, discount_per_liter, charge_pct
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(customer_id) DO UPDATE SET
+            company_name = excluded.company_name,
+            phone = excluded.phone,
+            address = excluded.address,
+            city = excluded.city,
+            state = excluded.state,
+            gstin = excluded.gstin,
+            pan_no = excluded.pan_no,
+            ndc_required = excluded.ndc_required,
+            is_b2c = excluded.is_b2c,
+            tds_apply = excluded.tds_apply,
+            is_tanker = excluded.is_tanker,
+            is_blocked = excluded.is_blocked,
+            bill_period = excluded.bill_period,
+            driver_pin = excluded.driver_pin,
+            credit_limit = excluded.credit_limit,
+            discount_per_liter = excluded.discount_per_liter,
+            charge_pct = excluded.charge_pct
+        `).bind(
+          customerId, customerCode ? Number(customerCode) : Math.floor(Math.random() * 90) + 10,
+          companyName, contactPerson, phone, address, city, state,
+          gstin, panNo, ndcRequired ? 1 : 0, isB2c ? 1 : 0, tdsApply ? 1 : 0,
+          isTanker ? 1 : 0, isBlocked ? 1 : 0, billPeriod, driverPin,
+          Number(creditLimit), Number(openingBalance), Number(openingBalance),
+          Number(discountPerLiter), Number(chargePct)
+        ).run();
+      }
+
+      return Response.json({
+        success: true,
+        action: "REGISTER_CUSTOMER",
+        customerId,
+        companyName,
+        message: "Customer master registered successfully in D1 database"
+      });
+    }
+
+    // Action 4: Cheque Return / Bounce Reversal
+    if (action === "CHEQUE_RETURN") {
+      const { customerId, customerName, receiptNo = '', chequeNo, bankName, amount, returnDate = new Date().toISOString().split('T')[0], penalty = 350.0, reason = 'Insufficient Funds' } = body;
+      if (!customerId || !chequeNo || !amount) {
+        return Response.json({ success: false, error: "Missing customer, cheque number or amount" }, { status: 400 });
+      }
+
+      const returnId = `CHQ-RET-${Date.now()}`;
+      const totalDebit = Number(amount) + Number(penalty);
+
+      if (env.DB) {
+        // Log in cheque_returns table
+        await env.DB.prepare(`
+          INSERT INTO cheque_returns (id, customer_id, customer_name, receipt_no, cheque_no, bank_name, amount, return_date, penalty_charges, reason, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'BOUNCED')
+        `).bind(returnId, customerId, customerName, receiptNo, chequeNo, bankName, Number(amount), returnDate, Number(penalty), reason).run();
+
+        // Reverse credit account balance (re-debit the customer)
+        await env.DB.prepare(`
+          UPDATE credit_accounts 
+          SET current_balance = current_balance + ?
+          WHERE customer_id = ?
+        `).bind(totalDebit, customerId).run();
+      }
+
+      return Response.json({
+        success: true,
+        action: "CHEQUE_RETURN",
+        returnId,
+        customerId,
+        amountReversed: Number(amount),
+        penaltyApplied: Number(penalty),
+        totalDebit,
+        message: `Cheque #${chequeNo} returned. ₹${totalDebit} re-debited to customer ledger.`
+      });
+    }
+
     return Response.json({ success: false, error: "Unknown action" }, { status: 400 });
   } catch (err) {
     return Response.json({ success: false, error: err.message }, { status: 500 });

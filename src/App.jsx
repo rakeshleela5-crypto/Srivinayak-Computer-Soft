@@ -1,9 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
 import ForecourtPhasingBar from './components/ForecourtPhasingBar';
+import TopRibbon from './components/TopRibbon';
 import Sidebar from './components/Sidebar';
 import ReceiptModal from './components/ReceiptModal';
+import RateMasterModal from './components/RateMasterModal';
+import CustomerMasterModal from './components/CustomerMasterModal';
+import CreditCustomerSaleModal from './components/CreditCustomerSaleModal';
+import PaymentReceiptModal from './components/PaymentReceiptModal';
+import TransferEntryModal from './components/TransferEntryModal';
+import PurchaseEntryModal from './components/PurchaseEntryModal';
+import DipRegisterModal from './components/DipRegisterModal';
+import ShiftSettlementModal from './components/ShiftSettlementModal';
+import AttendantHandoverVoucherModal from './components/AttendantHandoverVoucherModal';
+import MasterReportCriteriaModal from './components/MasterReportCriteriaModal';
+import StampingReminderModal from './components/StampingReminderModal';
+
 import DashboardView from './views/DashboardView';
 import POSView from './views/POSView';
 import NozzlesView from './views/NozzlesView';
@@ -58,12 +71,86 @@ class ModuleErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  const { activeTab, activeAppMode } = useApp();
+  const { activeTab, activeAppMode, setActiveTab } = useApp();
+
+  // ERP Modals State Controller
+  const [modals, setModals] = useState({
+    stamping: false,
+    rateMaster: false,
+    customerMaster: false,
+    creditSale: false,
+    paymentReceipt: false,
+    transferEntry: false,
+    purchaseEntry: false,
+    dipRegister: false,
+    shiftSettlement: false,
+    attendantHandover: false,
+    masterReports: false
+  });
+
+  const openModal = (name) => setModals(prev => ({ ...prev, [name]: true }));
+  const closeModal = (name) => setModals(prev => ({ ...prev, [name]: false }));
+
+  // Global Keyboard Shortcuts (F1-F10 matching video software)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't hijack input typing unless it's Escape
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+        return;
+      }
+
+      if (e.key === 'F1') {
+        e.preventDefault();
+        openModal('creditSale');
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        openModal('paymentReceipt');
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        openModal('customerMaster');
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        openModal('rateMaster');
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        openModal('transferEntry');
+      } else if (e.key === 'F7') {
+        e.preventDefault();
+        openModal('purchaseEntry');
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        openModal('dipRegister');
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        openModal('shiftSettlement');
+      } else if (e.key === 'F10') {
+        e.preventDefault();
+        openModal('masterReports');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const renderManagerModule = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardView />;
+        return (
+          <DashboardView 
+            onOpenCreditSale={() => openModal('creditSale')}
+            onOpenCustomerMaster={() => openModal('customerMaster')}
+            onOpenPaymentReceipt={() => openModal('paymentReceipt')}
+            onOpenTransferEntry={() => openModal('transferEntry')}
+            onOpenPurchaseEntry={() => openModal('purchaseEntry')}
+            onOpenDipRegister={() => openModal('dipRegister')}
+            onOpenRateMaster={() => openModal('rateMaster')}
+            onOpenShiftSettlement={() => openModal('shiftSettlement')}
+            onOpenAttendantHandover={() => openModal('attendantHandover')}
+            onOpenMasterReports={() => openModal('masterReports')}
+            onOpenStamping={() => openModal('stamping')}
+          />
+        );
       case 'pos':
         return <POSView />;
       case 'daybook':
@@ -89,7 +176,21 @@ export default function App() {
       case 'iot':
         return <IoTView />;
       default:
-        return <DashboardView />;
+        return (
+          <DashboardView 
+            onOpenCreditSale={() => openModal('creditSale')}
+            onOpenCustomerMaster={() => openModal('customerMaster')}
+            onOpenPaymentReceipt={() => openModal('paymentReceipt')}
+            onOpenTransferEntry={() => openModal('transferEntry')}
+            onOpenPurchaseEntry={() => openModal('purchaseEntry')}
+            onOpenDipRegister={() => openModal('dipRegister')}
+            onOpenRateMaster={() => openModal('rateMaster')}
+            onOpenShiftSettlement={() => openModal('shiftSettlement')}
+            onOpenAttendantHandover={() => openModal('attendantHandover')}
+            onOpenMasterReports={() => openModal('masterReports')}
+            onOpenStamping={() => openModal('stamping')}
+          />
+        );
     }
   };
 
@@ -105,7 +206,7 @@ export default function App() {
       default:
         return (
           <div style={{ display: 'flex', flex: 1, gap: '16px' }}>
-            <Sidebar />
+            <Sidebar onOpenModal={openModal} />
             <main style={{ flex: 1, minWidth: 0 }}>
               <ModuleErrorBoundary key={activeTab}>
                 {renderManagerModule()}
@@ -124,6 +225,22 @@ export default function App() {
       {/* Forecourt Phasing & Timing Coordination Banner */}
       <ForecourtPhasingBar />
 
+      {/* Top Desktop Ribbon with Weights & Measures Countdown, License, and Quick Action Buttons */}
+      <TopRibbon 
+        onOpenStamping={() => openModal('stamping')}
+        onOpenCreditSale={() => openModal('creditSale')}
+        onOpenCustomerMaster={() => openModal('customerMaster')}
+        onOpenPaymentReceipt={() => openModal('paymentReceipt')}
+        onOpenTransferEntry={() => openModal('transferEntry')}
+        onOpenPurchaseEntry={() => openModal('purchaseEntry')}
+        onOpenDipRegister={() => openModal('dipRegister')}
+        onOpenRateMaster={() => openModal('rateMaster')}
+        onOpenShiftSettlement={() => openModal('shiftSettlement')}
+        onOpenAttendantHandover={() => openModal('attendantHandover')}
+        onOpenMasterReports={() => openModal('masterReports')}
+        onQuickPos={() => setActiveTab('pos')}
+      />
+
       {/* Main Body Layout */}
       <div style={{ flex: 1, padding: '12px 16px' }}>
         <ModuleErrorBoundary key={activeAppMode}>
@@ -133,6 +250,63 @@ export default function App() {
 
       {/* Thermal Print Receipt Modal */}
       <ReceiptModal />
+
+      {/* Video Dissection ERP Dialogs & Modals */}
+      <StampingReminderModal 
+        isOpen={modals.stamping} 
+        onClose={() => closeModal('stamping')} 
+      />
+
+      <RateMasterModal 
+        isOpen={modals.rateMaster} 
+        onClose={() => closeModal('rateMaster')} 
+      />
+
+      <CustomerMasterModal 
+        isOpen={modals.customerMaster} 
+        onClose={() => closeModal('customerMaster')} 
+      />
+
+      <CreditCustomerSaleModal 
+        isOpen={modals.creditSale} 
+        onClose={() => closeModal('creditSale')} 
+      />
+
+      <PaymentReceiptModal 
+        isOpen={modals.paymentReceipt} 
+        onClose={() => closeModal('paymentReceipt')} 
+      />
+
+      <TransferEntryModal 
+        isOpen={modals.transferEntry} 
+        onClose={() => closeModal('transferEntry')} 
+      />
+
+      <PurchaseEntryModal 
+        isOpen={modals.purchaseEntry} 
+        onClose={() => closeModal('purchaseEntry')} 
+      />
+
+      <DipRegisterModal 
+        isOpen={modals.dipRegister} 
+        onClose={() => closeModal('dipRegister')} 
+      />
+
+      <ShiftSettlementModal 
+        isOpen={modals.shiftSettlement} 
+        onClose={() => closeModal('shiftSettlement')} 
+      />
+
+      <AttendantHandoverVoucherModal 
+        isOpen={modals.attendantHandover} 
+        onClose={() => closeModal('attendantHandover')} 
+      />
+
+      <MasterReportCriteriaModal 
+        isOpen={modals.masterReports} 
+        onClose={() => closeModal('masterReports')} 
+      />
+
     </div>
   );
 }

@@ -50,12 +50,16 @@ VALUES
 ('SDEN-01', 'SHIFT-20261008-01', 300, 60, 45, 20, 30, 40, 450.0, 168450.0, 168450.0, 0.0, 'Ramesh Kumar', 'Suresh Patil', 'Opening shift denominations verified by supervisor');
 
 -- 7. B2B Fleet Khata Credit Accounts
-INSERT OR REPLACE INTO credit_accounts (customer_id, company_name, contact_person, phone, gstin, credit_limit, current_balance, billing_cycle, payment_terms_days, discount_per_liter, hard_lock_enabled, allow_cash_advance, max_cash_advance, status)
+INSERT OR REPLACE INTO credit_accounts (customer_id, customer_code, company_name, contact_person, phone, address, city, state, gstin, pan_no, ndc_required, is_b2c, tds_apply, is_tanker, is_blocked, bill_period, driver_pin, credit_limit, opening_balance, current_balance, billing_cycle, payment_terms_days, discount_per_liter, charge_pct, hard_lock_enabled, allow_cash_advance, max_cash_advance, status)
 VALUES
-('fl-01', 'Shree Balaji Logistics & Movers', 'Rajendra Prasad', '+91 98860 77112', '29AABCU9603R1ZM', 500000.0, 342150.0, 'Monthly', 15, 0.75, 1, 1, 2000.0, 'ACTIVE'),
-('fl-02', 'Shiva Transport Corporation', 'Anand Murthy', '+91 99001 22889', '29AABCS8810K1ZZ', 350000.0, 185600.0, 'Fortnightly', 10, 1.00, 1, 1, 3000.0, 'ACTIVE'),
-('fl-03', 'City Express Cabs & Travels', 'Kavitha R', '+91 97400 44556', '29AADFC5500J1ZO', 150000.0, 68400.0, 'Weekly', 7, 0.50, 1, 0, 0.0, 'ACTIVE'),
-('fl-04', 'Apex Infra Roadways Ltd', 'Col. Sanjeev Nair', '+91 94480 33221', '29AACCA9081B1ZU', 800000.0, 720500.0, 'Monthly', 30, 0.85, 1, 1, 2500.0, 'ALERT');
+('fl-01', 1, 'Shree Balaji Logistics & Movers', 'Rajendra Prasad', '+91 98860 77112', 'Plot 45, Peenya Industrial Area', 'Bangalore', 'Karnataka', '29AABCU9603R1ZM', 'AABCU9603R', 1, 0, 1, 0, 0, '30 day', '4829', 500000.0, 300000.0, 342150.0, 'Monthly', 15, 0.75, 0.0, 1, 1, 2000.0, 'ACTIVE'),
+('fl-02', 2, 'Shiva Transport Corporation', 'Anand Murthy', '+91 99001 22889', 'NH-48 Ring Road Depot', 'Bangalore', 'Karnataka', '29AABCS8810K1ZZ', 'AABCS8810K', 0, 0, 1, 0, 0, '15 day', '3190', 350000.0, 150000.0, 185600.0, 'Fortnightly', 10, 1.00, 0.0, 1, 1, 3000.0, 'ACTIVE'),
+('fl-03', 3, 'City Express Cabs & Travels', 'Kavitha R', '+91 97400 44556', 'Koramangala 5th Block', 'Bangalore', 'Karnataka', '29AADFC5500J1ZO', 'AADFC5500J', 0, 1, 0, 0, 0, '7 day', '7721', 150000.0, 50000.0, 68400.0, 'Weekly', 7, 0.50, 0.0, 1, 0, 0.0, 'ACTIVE'),
+('fl-04', 4, 'Apex Infra Roadways Ltd', 'Col. Sanjeev Nair', '+91 94480 33221', 'Airport Industrial Corridor', 'Bangalore', 'Karnataka', '29AACCA9081B1ZU', 'AACCA9081B', 1, 0, 1, 1, 0, '30 day', '9910', 800000.0, 650000.0, 720500.0, 'Monthly', 30, 0.85, 0.0, 1, 1, 2500.0, 'ALERT'),
+('fl-05', 22, 'LIVAVATI TRANSPORTY', 'Jignesh Bhai', '+91 9274781188', 'GIDC Sector 3, Near Truck Stand', 'Dahod', 'Gujarat', '24AAACL1234F1Z9', 'AAACL1234F', 1, 0, 1, 1, 0, '30 day', '8624', 300000.0, 150000.0, 164433.60, 'Monthly', 30, 0.50, 1.5, 0, 1, 2500.0, 'ACTIVE'),
+('fl-06', 13, 'PORT TRANSPORT', 'Mustafa Khan', '+91 9274781188', 'Port Link Road, Hazira Bypass', 'Surat', 'Gujarat', '24AABCP8819Q1Z4', 'AABCP8819Q', 1, 0, 1, 0, 0, '30 day', '1144', 1000000.0, 750000.0, 795532.21, 'Monthly', 30, 0.70, 1.5, 1, 1, 4000.0, 'ACTIVE'),
+('fl-07', 19, 'JITU OD', 'Jitu Bhai', '+91 9999999999', 'National Highway Toll Plaza', 'Surat', 'Gujarat', '24AADFJ9901M1Z1', 'AADFJ9901M', 0, 1, 1, 0, 0, '15 day', '2233', 700000.0, 600000.0, 632120.00, 'Fortnightly', 15, 0.50, 0.0, 1, 0, 0.0, 'ACTIVE'),
+('fl-08', 11, 'KEL INFRAS', 'Himesh Patel', '+91 9999999999', 'Infra Project Yard', 'Tapi', 'Gujarat', '24AAECK1102P1Z8', 'AAECK1102P', 0, 0, 1, 0, 0, '30 day', '5566', 200000.0, 80000.0, 93765.27, 'Monthly', 30, 0.60, 0.0, 0, 1, 1500.0, 'ACTIVE');
 
 -- 8. Fleet Registered Vehicles
 INSERT OR REPLACE INTO fleet_vehicles (vehicle_id, fleet_id, plate_number, vehicle_type, driver_name, allowed_fuels, daily_quota_liters)
@@ -70,6 +74,29 @@ INSERT OR REPLACE INTO digital_indents (id, indent_number, fleet_id, company_nam
 VALUES
 ('ind-101', 'IND-2026-801', 'fl-01', 'Shree Balaji Logistics & Movers', 'KA-01-AK-4455', 'Ramu Gowda', '+91 98860 12345', 'HSD', 'High Speed Diesel', 250.0, 22437.50, 1500.0, 0.75, '4829', 'INDENT|fl-01|KA-01-AK-4455|HSD|250|1500|4829', 'ACTIVE', 'National Highway Bangalore to Pune trip', '2026-10-08 07:15:00', '2026-10-09 07:15:00'),
 ('ind-102', 'IND-2026-802', 'fl-02', 'Shiva Transport Corporation', 'KA-02-AA-9988', 'Basavaraj', '+91 99001 54321', 'HSD', 'High Speed Diesel', 180.0, 16155.00, 1000.0, 1.00, '3190', 'INDENT|fl-02|KA-02-AA-9988|HSD|180|1000|3190', 'ACTIVE', 'Local Sand Mining Depot run', '2026-10-08 08:30:00', '2026-10-09 08:30:00');
+
+-- 9b. Inward Stock Decantations with Security Seals & Tax Breakdown
+INSERT OR REPLACE INTO inward_stock (
+  delivery_id, invoice_no, tanker_tt_no, driver_name, dealer_name, tank_id, fuel_code, fuel_name,
+  invoiced_qty, dip_before_decantation, dip_after_decantation, received_qty, shortage_liters, shortage_percent,
+  invoice_density_15c, observed_temp_c, observed_density, converted_density_15c, density_variance,
+  wood_seal_1, wood_seal_2, wood_seal_3, wood_seal_4, alum_seal_1, alum_seal_2, alum_seal_3, alum_seal_4,
+  basic_rate, basic_amount, basic_excise, add_excise, vat_rate, vat_amount, cess, tcs, freight, final_amount,
+  status, verified_by, delivery_date
+)
+VALUES
+('DEC-20261007-01', '3215788', 'GJ01DU6553', 'Bhimanna Gowda', 'BHARAT PETROLEUM CO LTD', 'tank-1', 'MS', 'Petrol (MS-91)',
+ 12000.0, 7200.0, 19180.0, 11980.0, 20.0, 0.17,
+ 752.5, 29.2, 742.0, 752.4, -0.1,
+ 'WS-8841', 'WS-8842', 'WS-8843', 'WS-8844', 'AL-9011', 'AL-9012', 'AL-9013', 'AL-9014',
+ 76.25, 915000.0, 168000.0, 48000.0, 13.70, 155097.0, 42000.0, 915.0, 12000.0, 1341012.0,
+ 'VERIFIED_OK', 'Vijay Sharma (Manager)', '2026-10-07 14:30:00'),
+('DEC-20261006-02', '3215690', 'KA04F3211', 'Ranganath', 'BHARAT PETROLEUM CO LTD', 'tank-3', 'HSD', 'High Speed Diesel',
+ 20000.0, 5400.0, 25370.0, 19970.0, 30.0, 0.15,
+ 837.0, 28.5, 827.8, 837.2, 0.2,
+ 'WS-7711', 'WS-7712', 'WS-7713', 'WS-7714', 'AL-6611', 'AL-6612', 'AL-6613', 'AL-6614',
+ 73.05, 1461000.0, 180000.0, 40000.0, 14.90, 250469.0, 68000.0, 1461.0, 18000.0, 2018930.0,
+ 'VERIFIED_OK', 'Vijay Sharma (Manager)', '2026-10-06 10:15:00');
 
 -- 10. Lubricants & Packaged Goods
 INSERT OR REPLACE INTO lubricants (lube_id, code, name, brand, category, price, stock_qty, min_reorder, gst_percent)
@@ -141,3 +168,34 @@ INSERT OR REPLACE INTO calibration_tests (id, date, nozzle_id, nozzle_number, fu
 VALUES
 ('CAL-1008-01', '2026-10-08', 'noz-1', 'N-01', 'MS', 5.0, 5.0, 0.0, 25.0, 'PASSED', 'tank-1', 'Vijay Sharma (Manager)', 'VALID-Q4-2026'),
 ('CAL-1008-02', '2026-10-08', 'noz-3', 'N-03', 'HSD', 5.0, 5.0, 0.0, 25.0, 'PASSED', 'tank-3', 'Vijay Sharma (Manager)', 'VALID-Q4-2026');
+
+-- 20. Contra Transfers & Inter-Account Vouchers
+INSERT OR REPLACE INTO transfers (transfer_id, date, shift, voucher_type, from_account, to_account, amount, narration)
+VALUES
+('TRF-20261008-01', '2026-10-08', 'First', 'Receipt Cash Voucher(Cash Deposit)', 'CASH ON HAND', 'HDFC CA 0459', 500000.0, 'IOCL RTGS Oil Indent Fund Transfer Cash Deposit'),
+('TRF-20261007-02', '2026-10-07', 'First', 'Contra Voucher', 'PAYTM', 'HDFC CA 0459', 85000.0, 'Daily Paytm QR Auto-Settlement to Current Account');
+
+-- 21. Cheque Returns & Bounce Audit Register
+INSERT OR REPLACE INTO cheque_returns (id, customer_id, customer_name, receipt_no, cheque_no, bank_name, amount, return_date, penalty_charges, reason, status)
+VALUES
+('CHQ-RET-01', 'fl-01', 'Shree Balaji Logistics & Movers', 'RCT-1004', 'CHQ-889102', 'State Bank of India', 45000.0, '2026-10-05', 350.0, 'Insufficient Funds - Ledger Reversal Applied', 'BOUNCED');
+
+-- 22. Legal Metrology / Dispenser Stamping Register
+INSERT OR REPLACE INTO stamping_register (id, nozzle_id, nozzle_name, dispenser_name, last_stamped_date, expiry_date, days_left, certificate_no, inspector_name, status)
+VALUES
+('STP-01', 'noz-1', 'MS 1', 'Dispenser 01 (Island 1)', '2025-10-15', '2026-10-15', 7, 'W&M-KA-BLR-8491', 'M. G. Patil (Legal Metrology)', 'DUE_SOON'),
+('STP-02', 'noz-2', 'XP95 1', 'Dispenser 01 (Island 1)', '2025-10-15', '2026-10-15', 7, 'W&M-KA-BLR-8492', 'M. G. Patil (Legal Metrology)', 'DUE_SOON'),
+('STP-03', 'noz-3', 'HSD 1', 'Dispenser 01 (Island 1)', '2026-04-10', '2027-04-10', 184, 'W&M-KA-BLR-9201', 'K. Raghavan (Legal Metrology)', 'VALID'),
+('STP-04', 'noz-5', 'HSD 2', 'Dispenser 02 (Island 2)', '2026-04-10', '2027-04-10', 184, 'W&M-KA-BLR-9202', 'K. Raghavan (Legal Metrology)', 'VALID');
+
+-- 23. Physical Tank Dip Register & OMC Allowable Limits
+INSERT OR REPLACE INTO dip_register (id, date, shift, tank_id, fuel_code, opening_dip, opening_stock, receipt_qty, closing_dip, closing_stock, dip_sale, meter_sale, variation, allowable_limit, status)
+VALUES
+('DIP-20261008-MS', '2026-10-08', 'First', 'tank-1', 'MS', 1640.0, 18450.0, 0.0, 1420.0, 15150.0, 3300.0, 3164.0, -136.0, -23.73, 'CHECK_REQUIRED'),
+('DIP-20261008-HSD', '2026-10-08', 'First', 'tank-3', 'HSD', 1850.0, 22150.0, 0.0, 1680.0, 18360.0, 3790.0, 3526.0, -264.0, -55.38, 'CHECK_REQUIRED');
+
+-- 24. Staff Advances (Upaad) Register
+INSERT OR REPLACE INTO staff_advances (id, staff_id, staff_name, date, shift, advance_amount, reason, recovered_amount, balance_pending, status)
+VALUES
+('UPD-1008-01', 'staff-1', 'Ramesh Kumar', '2026-10-08', 'First', 1500.0, 'Emergency family medical expenses', 0.0, 1500.0, 'PENDING'),
+('UPD-1007-02', 'staff-2', 'Suresh Patil', '2026-10-07', 'First', 1000.0, 'Uniform dry-cleaning advance', 500.0, 500.0, 'PARTIAL');
