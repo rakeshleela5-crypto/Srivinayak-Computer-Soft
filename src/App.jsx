@@ -16,6 +16,7 @@ import ShiftSettlementModal from './components/ShiftSettlementModal';
 import AttendantHandoverVoucherModal from './components/AttendantHandoverVoucherModal';
 import MasterReportCriteriaModal from './components/MasterReportCriteriaModal';
 import StampingReminderModal from './components/StampingReminderModal';
+import CashPOSBillModal from './components/CashPOSBillModal';
 
 import DashboardView from './views/DashboardView';
 import POSView from './views/POSView';
@@ -71,7 +72,7 @@ class ModuleErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  const { activeTab, activeAppMode, setActiveTab } = useApp();
+  const { activeTab, activeAppMode, setActiveTab, setActiveAppMode } = useApp();
 
   // ERP Modals State Controller
   const [modals, setModals] = useState({
@@ -85,13 +86,14 @@ export default function App() {
     dipRegister: false,
     shiftSettlement: false,
     attendantHandover: false,
-    masterReports: false
+    masterReports: false,
+    posBill: false
   });
 
   const openModal = (name) => setModals(prev => ({ ...prev, [name]: true }));
   const closeModal = (name) => setModals(prev => ({ ...prev, [name]: false }));
 
-  // Global Keyboard Shortcuts (F1-F10 matching video software)
+  // Global Keyboard Shortcuts (F1-F12 matching video software)
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Don't hijack input typing unless it's Escape
@@ -111,6 +113,9 @@ export default function App() {
       } else if (e.key === 'F4') {
         e.preventDefault();
         openModal('rateMaster');
+      } else if (e.key === 'F5' || e.key === 'F12') {
+        e.preventDefault();
+        openModal('posBill');
       } else if (e.key === 'F6') {
         e.preventDefault();
         openModal('transferEntry');
@@ -149,6 +154,7 @@ export default function App() {
             onOpenAttendantHandover={() => openModal('attendantHandover')}
             onOpenMasterReports={() => openModal('masterReports')}
             onOpenStamping={() => openModal('stamping')}
+            onOpenPosBill={() => openModal('posBill')}
           />
         );
       case 'pos':
@@ -189,6 +195,7 @@ export default function App() {
             onOpenAttendantHandover={() => openModal('attendantHandover')}
             onOpenMasterReports={() => openModal('masterReports')}
             onOpenStamping={() => openModal('stamping')}
+            onOpenPosBill={() => openModal('posBill')}
           />
         );
     }
@@ -238,7 +245,7 @@ export default function App() {
         onOpenShiftSettlement={() => openModal('shiftSettlement')}
         onOpenAttendantHandover={() => openModal('attendantHandover')}
         onOpenMasterReports={() => openModal('masterReports')}
-        onQuickPos={() => setActiveTab('pos')}
+        onQuickPos={() => openModal('posBill')}
       />
 
       {/* Main Body Layout */}
@@ -305,6 +312,16 @@ export default function App() {
       <MasterReportCriteriaModal 
         isOpen={modals.masterReports} 
         onClose={() => closeModal('masterReports')} 
+      />
+
+      {/* Instant Cash/Card/UPI Rapid POS Bill Modal */}
+      <CashPOSBillModal 
+        isOpen={modals.posBill} 
+        onClose={() => closeModal('posBill')} 
+        onOpenFullTerminal={() => {
+          setActiveAppMode('MANAGER');
+          setActiveTab('pos');
+        }}
       />
 
     </div>

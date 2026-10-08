@@ -17,7 +17,8 @@ import {
   FileCode,
   CreditCard,
   ArrowLeftRight,
-  BookOpen
+  BookOpen,
+  Zap
 } from 'lucide-react';
 
 export default function Sidebar({ onOpenModal }) {
@@ -40,6 +41,7 @@ export default function Sidebar({ onOpenModal }) {
   ];
 
   const quickActions = [
+    { name: 'POS Quick Bill', key: 'F5', modal: 'posBill', icon: Zap, color: '#10b981' },
     { name: 'Credit Sale', key: 'F1', modal: 'creditSale', icon: Truck, color: '#fbbf24' },
     { name: 'Cust Payment', key: 'F2', modal: 'paymentReceipt', icon: CreditCard, color: '#34d399' },
     { name: 'Customer Master', key: 'F3', modal: 'customerMaster', icon: Users2, color: '#38bdf8' },

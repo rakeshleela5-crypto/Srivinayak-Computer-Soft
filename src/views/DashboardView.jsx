@@ -43,7 +43,8 @@ export default function DashboardView({
   onOpenShiftSettlement,
   onOpenAttendantHandover,
   onOpenMasterReports,
-  onOpenStamping
+  onOpenStamping,
+  onOpenPosBill
 }) {
   const { 
     stationInfo, 
@@ -132,6 +133,7 @@ export default function DashboardView({
         </span>
 
         {[
+          { label: 'POS Cash Bill', key: 'F5', icon: Zap, onClick: onOpenPosBill, color: '#10b981' },
           { label: 'Credit Sale', key: 'F1', icon: Truck, onClick: onOpenCreditSale, color: '#fbbf24' },
           { label: 'Payment Receipt', key: 'F2', icon: CreditCard, onClick: onOpenPaymentReceipt, color: '#34d399' },
           { label: 'Customer Master', key: 'F3', icon: Users2, onClick: onOpenCustomerMaster, color: '#38bdf8' },
