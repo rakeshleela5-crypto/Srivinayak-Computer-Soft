@@ -15,7 +15,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Droplets,
-  DollarSign
+  DollarSign,
+  MessageSquare,
+  Send,
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 
 export default function DealerPortalView() {
@@ -31,7 +35,9 @@ export default function DealerPortalView() {
     recordBankDeposit, 
     forecourtExpenses, 
     recordExpense,
-    recoverStaffShortage
+    recoverStaffShortage,
+    automatedAlerts,
+    dispatchAlert
   } = useApp();
 
   const [depositModalOpen, setDepositModalOpen] = useState(false);
@@ -313,6 +319,105 @@ export default function DealerPortalView() {
           </div>
         </div>
 
+      </div>
+
+      {/* WhatsApp & SMS Automated Notification Dispatcher & Live Alert Center (PDF Pages 11 & 12) */}
+      <div className="glass-card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '18px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="badge" style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', border: '1px solid rgba(37, 211, 102, 0.3)' }}>
+                PDF ALERT DISPATCHER
+              </span>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={20} color="#25D366" /> Automated WhatsApp & SMS Forecourt Dispatcher
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Instant automated notifications for Shift Closings to Dealer, Credit Limit Breaches to Fleet Transporters, and Low Tank Stock alerts.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => {
+                dispatchAlert({
+                  type: 'WHATSAPP',
+                  recipient: 'Ramesh Hegde (Dealer Owner)',
+                  phone: '+91 98450 99881',
+                  category: 'DAILY_SETTLEMENT',
+                  subject: 'Live Shift 1 Close Report',
+                  message: `⛽ *SHREE VINAYAKA PETROSOFT*\nShift 1 Summary:\n• Gross Sales: ₹${grossTurnover.toLocaleString()}\n• Cash in Safe: ₹${cashInSafe.toLocaleString()}\n• Bank Deposits: ₹${totalBankDepositsAmount.toLocaleString()}\n• Pending Shortages: ₹${totalPendingShortages}\nStatus: Verified OK.`
+                });
+              }}
+              className="btn-primary"
+              style={{ background: '#25D366', borderColor: '#25D366', color: '#052e16', fontWeight: 800, fontSize: '0.8rem' }}
+            >
+              <Send size={15} /> Send Day-End WhatsApp
+            </button>
+            <button
+              onClick={() => {
+                dispatchAlert({
+                  type: 'SMS',
+                  recipient: 'Fleet Transporter (Apex Infra)',
+                  phone: '+91 94480 33221',
+                  category: 'CREDIT_LIMIT',
+                  subject: 'Credit Limit Alert',
+                  message: `SVP ALERT: Dear Apex Infra, Credit outstanding has reached ₹${totalCreditDebt.toLocaleString()}. Please remit RTGS today.`
+                });
+              }}
+              className="btn-secondary"
+              style={{ fontSize: '0.8rem' }}
+            >
+              <Smartphone size={15} /> Send Credit Alert
+            </button>
+          </div>
+        </div>
+
+        {/* Live Alerts Stream */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+          {automatedAlerts.map(alert => (
+            <div key={alert.id} style={{ padding: '16px', borderRadius: '12px', background: 'rgba(2, 6, 23, 0.6)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="badge" style={{ 
+                  background: alert.type === 'WHATSAPP' ? 'rgba(37, 211, 102, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                  color: alert.type === 'WHATSAPP' ? '#25D366' : '#60a5fa',
+                  border: `1px solid ${alert.type === 'WHATSAPP' ? 'rgba(37, 211, 102, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+                }}>
+                  {alert.type} • {alert.category}
+                </span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                  {alert.timestamp}
+                </span>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc' }}>{alert.recipient}</div>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>{alert.phone}</div>
+              </div>
+
+              <div style={{ fontSize: '0.78rem', color: '#cbd5e1', whiteSpace: 'pre-line', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', fontFamily: 'var(--font-mono)' }}>
+                {alert.message}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '6px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle2 size={13} /> {alert.status}
+                </span>
+                {alert.type === 'WHATSAPP' && (
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(alert.message)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '0.74rem', color: '#25D366', fontWeight: 800, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    Open in WhatsApp <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Record Bank Deposit Modal */}

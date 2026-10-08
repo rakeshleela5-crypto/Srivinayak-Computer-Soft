@@ -24,7 +24,10 @@ export default function POSView() {
     lubricants, 
     recordTransaction, 
     currentShift,
-    activeRole
+    activeRole,
+    loyaltyCustomers,
+    earnLoyaltyPoints,
+    redeemLoyaltyPoints
   } = useApp();
 
   // Active Dispensing Form State
@@ -35,6 +38,8 @@ export default function POSView() {
   const [paymentMode, setPaymentMode] = useState('UPI'); // CASH, CARD, UPI, CREDIT
   const [vehicleNo, setVehicleNo] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [redeemedPoints, setRedeemedPoints] = useState(0);
   const [selectedFleetId, setSelectedFleetId] = useState('');
   const [driverName, setDriverName] = useState('');
   const [slipNo, setSlipNo] = useState('');
@@ -60,7 +65,12 @@ export default function POSView() {
   }
 
   const lubesTotalAmount = selectedLubes.reduce((sum, item) => sum + item.total, 0);
-  const netTotalPayable = calculatedFuelAmount + lubesTotalAmount;
+  const grossTotal = calculatedFuelAmount + lubesTotalAmount;
+  const netTotalPayable = Math.max(0, grossTotal - redeemedPoints);
+
+  const matchedLoyaltyMember = customerPhone.trim().length >= 8 
+    ? loyaltyCustomers.find(c => c.phone.replace(/\s+/g, '').includes(customerPhone.trim().replace(/\s+/g, '')))
+    : null;
 
   // Selected Fleet Account Check
   const currentFleet = fleetAccounts.find(f => f.id === selectedFleetId);
@@ -131,11 +141,21 @@ export default function POSView() {
 
     recordTransaction(salePayload);
 
+    // Credit loyalty points and redeem if applicable (PDF Page 1 & 3)
+    if (redeemedPoints > 0 && customerPhone) {
+      redeemLoyaltyPoints(customerPhone, redeemedPoints);
+    }
+    if (customerPhone && calculatedLiters > 0) {
+      earnLoyaltyPoints(customerPhone, calculatedLiters, customerName, vehicleNo);
+    }
+
     // Reset Form
     setAmountInput('');
     setLitersInput('');
     setVehicleNo('');
     setCustomerName('');
+    setCustomerPhone('');
+    setRedeemedPoints(0);
     setSelectedLubes([]);
     setSlipNo('');
     setDriverName('');
@@ -325,8 +345,8 @@ export default function POSView() {
           )}
         </div>
 
-        {/* 3. Step: Vehicle Details & Customer Info */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        {/* 3. Step: Vehicle Details, Mobile & Customer Loyalty (PDF Page 1 & 3) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px' }}>
           <div>
             <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Vehicle Plate Number</label>
             <input
@@ -338,7 +358,7 @@ export default function POSView() {
             />
           </div>
           <div>
-            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Customer / Driver Name</label>
+            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Customer Name</label>
             <input
               type="text"
               placeholder="Optional / Retail"
@@ -347,7 +367,46 @@ export default function POSView() {
               style={{ width: '100%', marginTop: '4px' }}
             />
           </div>
+          <div>
+            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Customer Mobile (Loyalty & SMS)</label>
+            <input
+              type="tel"
+              placeholder="+91 98450 11223"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              style={{ width: '100%', marginTop: '4px', fontFamily: 'var(--font-mono)' }}
+            />
+          </div>
         </div>
+
+        {/* Loyalty Member Live Recognition Card (PDF Page 1: Customer & Loyalty) */}
+        {matchedLoyaltyMember && (
+          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 900, fontSize: '0.65rem' }}>
+                  {matchedLoyaltyMember.tier} CLUB MEMBER
+                </span>
+                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>{matchedLoyaltyMember.name}</span>
+              </div>
+              <div style={{ fontSize: '0.76rem', color: '#fbbf24', marginTop: '3px' }}>
+                Available Balance: <strong>{matchedLoyaltyMember.points} Points</strong> (₹{matchedLoyaltyMember.points} value • 1 pt per 10L)
+              </div>
+            </div>
+            <div>
+              {matchedLoyaltyMember.points >= 50 && (
+                <button
+                  type="button"
+                  onClick={() => setRedeemedPoints(prev => prev > 0 ? 0 : Math.min(100, matchedLoyaltyMember.points))}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.75rem', borderColor: '#f59e0b', color: '#fbbf24', fontWeight: 800 }}
+                >
+                  {redeemedPoints > 0 ? 'Cancel Discount' : 'Redeem ₹100 Off'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 4. Step: Multi-Tender Payment Method */}
         <div>

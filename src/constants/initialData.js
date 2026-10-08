@@ -628,3 +628,102 @@ export const INITIAL_CALIBRATION_TESTS = [
     weightsAndMeasuresStamp: "VALID-Q4-2026"
   }
 ];
+
+export const INITIAL_LOYALTY_CUSTOMERS = [
+  { id: "loy-1", name: "Rahul S. Verma", phone: "+91 98450 11223", vehicleNo: "KA-04-MB-4512", points: 340, tier: "GOLD", totalLiters: 3400, lastVisit: "2026-10-08" },
+  { id: "loy-2", name: "Dr. Priya Patel", phone: "+91 99800 22334", vehicleNo: "KA-01-EQ-9011", points: 180, tier: "SILVER", totalLiters: 1800, lastVisit: "2026-10-07" },
+  { id: "loy-3", name: "Kiran Gowda", phone: "+91 97420 55667", vehicleNo: "KA-03-JJ-3344", points: 620, tier: "PLATINUM", totalLiters: 6200, lastVisit: "2026-10-08" },
+  { id: "loy-4", name: "Suresh Babu", phone: "+91 94481 99001", vehicleNo: "KA-05-D-8821", points: 95, tier: "SILVER", totalLiters: 950, lastVisit: "2026-10-06" }
+];
+
+export const INITIAL_AUTOMATED_ALERTS = [
+  {
+    id: "alt-01",
+    type: "WHATSAPP",
+    recipient: "Ramesh Hegde (Dealer Owner)",
+    phone: "+91 98450 99881",
+    category: "DAILY_SETTLEMENT",
+    subject: "Shift 1 Close Financial Summary",
+    message: "⛽ *SHREE VINAYAKA PETROSOFT AI SHIVA*\n📋 *Shift 1 Closing Alert*\n• Total Liters: 3,925.35 L\n• Gross Sales: ₹3,75,400\n• Cash In Hand: ₹1,85,200\n• Credit Slips: ₹1,25,400\n• UPI / Digital: ₹64,800\n• Shortage: ₹200 (Raju M)\n• Dip Stock: 41,200 L\nStatus: BALANCED (Audit Passed)",
+    timestamp: "2026-10-08 14:02",
+    status: "SENT"
+  },
+  {
+    id: "alt-02",
+    type: "WHATSAPP",
+    recipient: "Col. Sanjeev Nair (Apex Infra)",
+    phone: "+91 94480 33221",
+    category: "CREDIT_LIMIT",
+    subject: "Credit Limit Utilization Alert (90%)",
+    message: "⚠️ *SHREE VINAYAKA PETROSOFT - CREDIT ALERT*\nDear Apex Infra Roadways,\nYour credit outstanding has reached *₹7,20,500* against sanctioned limit of *₹8,00,000* (90.1% utilized).\nPlease remit bank NEFT/RTGS to avoid dispensing hold on fleet KA-04-D-9900.",
+    timestamp: "2026-10-08 11:15",
+    status: "SENT"
+  },
+  {
+    id: "alt-03",
+    type: "SMS",
+    recipient: "Vijay Sharma (Forecourt Manager)",
+    phone: "+91 98450 12345",
+    category: "LOW_STOCK",
+    subject: "Tank Low Stock Warning",
+    message: "🚨 SVP ALERT: Tank 2 (HSD Diesel) dip reading 2,960 L (14.8% capacity). Reorder TT tanker immediately from IOCL terminal.",
+    timestamp: "2026-10-08 09:30",
+    status: "DELIVERED"
+  }
+];
+
+export const TRANSLATIONS = {
+  en: {
+    brandName: "SHREE VINAYAKA PETROSOFT",
+    dealerApp: "Dealer App",
+    managerApp: "Manager App",
+    salesmanApp: "Salesman App",
+    creditCustomerApp: "Credit Customer App",
+    forecourtMonitor: "Forecourt Monitor",
+    posBilling: "Forecourt POS Billing",
+    nozzlesTotalizers: "Nozzles & Totalizers",
+    wetStockDip: "Wet-Stock & ATG Dip",
+    fleetKhata: "Fleet & Khata Credit",
+    shiftsHandover: "Shifts & Handover",
+    lubesNonFuel: "Lubes & Non-Fuel",
+    dailySettlement: "Daily Settlement (DSS)",
+    iotPulse: "IoT Pulse & Sensors",
+    mismatchRadar: "5-Step Mismatch Radar",
+    loyaltyClub: "Customer Loyalty",
+    whatsappAlerts: "WhatsApp & SMS Center",
+    quickTender: "Quick Tender",
+    fullTank: "Full Tank",
+    dispenseFuel: "Dispense Fuel",
+    cashInHand: "Cash In Hand",
+    totalizerReading: "Meter Reading",
+    shortageAlert: "Shortage Alert",
+    offlineMode: "Offline Forecourt Ready"
+  },
+  hi: {
+    brandName: "श्री विनायक पेट्रोसॉफ्ट",
+    dealerApp: "डीलर ऐप (मालिक)",
+    managerApp: "मैनेजर ऐप",
+    salesmanApp: "सेल्समैन ऐप",
+    creditCustomerApp: "क्रेडिट ग्राहक पोर्टल",
+    forecourtMonitor: "फोरकोर्ट मॉनिटर",
+    posBilling: "फोरकोर्ट पीओएस बिलिंग",
+    nozzlesTotalizers: "नोजल व मीटर रीडिंग",
+    wetStockDip: "टैंक डिप व स्टॉक",
+    fleetKhata: "खाता व फ्लीट क्रेडिट",
+    shiftsHandover: "शिफ्ट व हैंडओवर",
+    lubesNonFuel: "इंजन ऑयल व ल्यूब्स",
+    dailySettlement: "दैनिक हिसाब (DSS)",
+    iotPulse: "आईओटी सेंसर",
+    mismatchRadar: "5-स्टेप स्टॉक मिलान रडार",
+    loyaltyClub: "ग्राहक लॉयल्टी क्लब",
+    whatsappAlerts: "व्हाट्सएप व एसएमएस अलर्ट",
+    quickTender: "त्वरित भुगतान",
+    fullTank: "फुल टैंक",
+    dispenseFuel: "ईंधन भरें",
+    cashInHand: "नकद संकलन",
+    totalizerReading: "मीटर रीडिंग",
+    shortageAlert: "कमी / शॉर्टेज चेतावनी",
+    offlineMode: "ऑफलाइन मोड सक्रिय"
+  }
+};
+

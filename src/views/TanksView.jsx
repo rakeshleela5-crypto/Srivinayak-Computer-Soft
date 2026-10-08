@@ -22,8 +22,12 @@ export default function TanksView() {
     recordPhysicalDip,
     stationInfo,
     calculateDensityAt15C,
-    activeRole
+    activeRole,
+    get5StepMismatchAudit
   } = useApp();
+
+  const [auditTankId, setAuditTankId] = useState(tanks[0]?.id || 'tank-1');
+  const audit = get5StepMismatchAudit(auditTankId);
 
   const [decantationModalOpen, setDecantationModalOpen] = useState(false);
   const [dipModalOpen, setDipModalOpen] = useState(false);
@@ -262,6 +266,121 @@ export default function TanksView() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* 5-Step Fuel Stock Mismatch Diagnostic Radar (PDF Pages 5 & 6) */}
+      <div className="glass-card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="badge badge-alert" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                PDF AUDIT RADAR
+              </span>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                5-Step Fuel Stock Mismatch & Variation Diagnostics
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              "Why don't your numbers match?" — Automated forecourt reconciliation across physical dip, dispenser meters, tanker decantations, shift entries, and temperature shrinkage.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 700 }}>SELECT TANK:</label>
+            <select
+              value={auditTankId}
+              onChange={(e) => setAuditTankId(e.target.value)}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: '#fff', padding: '6px 12px', fontSize: '0.85rem' }}
+            >
+              {tanks.map(t => (
+                <option key={t.id} value={t.id} style={{ background: '#0f172a' }}>
+                  {t.tankNumber} - {t.fuelCode} ({t.fuelName})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Audit High Level Comparison Banner */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700 }}>SYSTEM BOOK STOCK</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#38bdf8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {audit.expectedBookStock.toLocaleString()} L
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Opening + Received - Sold - Loss</div>
+          </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700 }}>ACTUAL PHYSICAL DIP STOCK</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#34d399', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {audit.currentDipStock.toLocaleString()} L
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Brass Rod Dip Chart Reading</div>
+          </div>
+
+          <div style={{ background: audit.isBalanced ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', padding: '14px', borderRadius: '12px', border: `1px solid ${audit.isBalanced ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}` }}>
+            <div style={{ fontSize: '0.72rem', color: audit.isBalanced ? '#34d399' : '#f87171', fontWeight: 700 }}>NET VARIATION (VARIANCE)</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: audit.isBalanced ? '#34d399' : '#f87171', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {audit.stockDiscrepancyLiters > 0 ? `+${audit.stockDiscrepancyLiters.toLocaleString()}` : audit.stockDiscrepancyLiters.toLocaleString()} L
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Valued at ₹{audit.discrepancyAmount.toLocaleString()} ({audit.isBalanced ? 'Within Legal Metrology Norm' : 'Investigate Root Cause'})
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700 }}>DIAGNOSTIC STATUS</div>
+            <span className={`badge ${audit.isBalanced ? 'badge-active' : 'badge-alert'}`} style={{ marginTop: '6px', alignSelf: 'flex-start' }}>
+              {audit.isBalanced ? 'AUDIT PASSED (BALANCED)' : 'VARIANCE INVESTIGATION NEEDED'}
+            </span>
+          </div>
+        </div>
+
+        {/* 5-Step Diagnostic Checklist (Exact PDF Page 5 Replication) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b' }}>STEP 01: Verify Tank Stock</span>
+              {audit.step1.passed ? <CheckCircle size={16} color="#34d399" /> : <AlertTriangle size={16} color="#f87171" />}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>{audit.step1.desc}</p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b' }}>STEP 02: Check Dispenser Meters</span>
+              {audit.step2.passed ? <CheckCircle size={16} color="#34d399" /> : <AlertTriangle size={16} color="#f87171" />}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>{audit.step2.desc}</p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b' }}>STEP 03: Confirm Tanker Decantations</span>
+              {audit.step3.passed ? <CheckCircle size={16} color="#34d399" /> : <AlertTriangle size={16} color="#f87171" />}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>{audit.step3.desc}</p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b' }}>STEP 04: Review Shift Closing & Tests</span>
+              {audit.step4.passed ? <CheckCircle size={16} color="#34d399" /> : <AlertTriangle size={16} color="#f87171" />}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>{audit.step4.desc}</p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b' }}>STEP 05: Check Evaporation & Density</span>
+              {audit.step5.passed ? <CheckCircle size={16} color="#34d399" /> : <AlertTriangle size={16} color="#f87171" />}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>{audit.step5.desc}</p>
+          </div>
+
         </div>
       </div>
 

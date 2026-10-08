@@ -14,18 +14,18 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const { activeTab, setActiveTab, offlineQueue } = useApp();
+  const { activeTab, setActiveTab, offlineQueue, t } = useApp();
 
   const navItems = [
-    { id: 'dashboard', label: 'Forecourt Monitor', icon: LayoutDashboard, badge: null },
-    { id: 'pos', label: 'Forecourt POS Billing', icon: Fuel, badge: 'Live' },
-    { id: 'nozzles', label: 'Nozzles & Totalizers', icon: Gauge, badge: null },
-    { id: 'tanks', label: 'Wet-Stock & ATG Dip', icon: Database, badge: null },
-    { id: 'fleet', label: 'Fleet & Khata Credit', icon: Truck, badge: null },
-    { id: 'shifts', label: 'Shifts & Handover', icon: Users2, badge: null },
-    { id: 'lubes', label: 'Lubes & Non-Fuel', icon: Package, badge: null },
-    { id: 'settlement', label: 'Daily Settlement (DSS)', icon: FileSpreadsheet, badge: 'Audit' },
-    { id: 'iot', label: 'IoT Pulse & Sensors', icon: Cpu, badge: 'Edge' }
+    { id: 'dashboard', label: t('forecourtMonitor'), icon: LayoutDashboard, badge: null },
+    { id: 'pos', label: t('posBilling'), icon: Fuel, badge: 'Live' },
+    { id: 'nozzles', label: t('nozzlesTotalizers'), icon: Gauge, badge: null },
+    { id: 'tanks', label: t('wetStockDip'), icon: Database, badge: null },
+    { id: 'fleet', label: t('fleetKhata'), icon: Truck, badge: null },
+    { id: 'shifts', label: t('shiftsHandover'), icon: Users2, badge: null },
+    { id: 'lubes', label: t('lubesNonFuel'), icon: Package, badge: null },
+    { id: 'settlement', label: t('dailySettlement'), icon: FileSpreadsheet, badge: 'Audit' },
+    { id: 'iot', label: t('iotPulse'), icon: Cpu, badge: 'Edge' }
   ];
 
   return (

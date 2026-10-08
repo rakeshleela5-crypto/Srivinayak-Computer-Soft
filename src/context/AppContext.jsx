@@ -14,7 +14,10 @@ import {
   INITIAL_TRANSACTIONS,
   INITIAL_CALIBRATION_TESTS,
   INITIAL_BANK_DEPOSITS,
-  INITIAL_FORECOURT_EXPENSES
+  INITIAL_FORECOURT_EXPENSES,
+  INITIAL_LOYALTY_CUSTOMERS,
+  INITIAL_AUTOMATED_ALERTS,
+  TRANSLATIONS
 } from '../constants/initialData';
 
 const AppContext = createContext(null);
@@ -22,6 +25,15 @@ const AppContext = createContext(null);
 export const AppProvider = ({ children }) => {
   // Persistence with localStorage fallback
   const [stationInfo] = useState(STATION_INFO);
+  
+  // Language Support (English / Hindi Vernacular)
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem('svp_lang') || 'en';
+  });
+
+  const t = (key) => {
+    return TRANSLATIONS[language]?.[key] || TRANSLATIONS['en']?.[key] || key;
+  };
   
   // 4 Core Role Viewports from PDF: 'DEALER' | 'MANAGER' | 'SALESMAN' | 'FLEET_PORTAL'
   const [activeAppMode, setActiveAppMode] = useState(() => {
@@ -76,6 +88,18 @@ export const AppProvider = ({ children }) => {
   const [forecourtExpenses, setForecourtExpenses] = useState(() => {
     const saved = localStorage.getItem('svp_expenses');
     return saved ? JSON.parse(saved) : INITIAL_FORECOURT_EXPENSES;
+  });
+
+  // Customer Loyalty & Rewards Points Engine (PDF Page 1 & 3)
+  const [loyaltyCustomers, setLoyaltyCustomers] = useState(() => {
+    const saved = localStorage.getItem('svp_loyalty');
+    return saved ? JSON.parse(saved) : INITIAL_LOYALTY_CUSTOMERS;
+  });
+
+  // Automated WhatsApp & SMS Notification Dispatcher (PDF Page 11 & 12)
+  const [automatedAlerts, setAutomatedAlerts] = useState(() => {
+    const saved = localStorage.getItem('svp_alerts');
+    return saved ? JSON.parse(saved) : INITIAL_AUTOMATED_ALERTS;
   });
 
   // Active Fleet Selected in Fleet Portal View
@@ -535,6 +559,147 @@ export const AppProvider = ({ children }) => {
     setPriceUpdateLog(prev => [logEntry, ...prev]);
   };
 
+  useEffect(() => {
+    localStorage.setItem('svp_lang', language);
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('svp_loyalty', JSON.stringify(loyaltyCustomers));
+  }, [loyaltyCustomers]);
+
+  useEffect(() => {
+    localStorage.setItem('svp_alerts', JSON.stringify(automatedAlerts));
+  }, [automatedAlerts]);
+
+  // Customer Loyalty Engine (PDF Page 1 & 3)
+  const earnLoyaltyPoints = (phone, liters, customerName = '', vehicleNo = '') => {
+    if (!phone) return null;
+    const earnedPoints = Math.max(1, Math.floor(liters / 10)); // 1 pt per 10 Liters
+    setLoyaltyCustomers(prev => {
+      const existing = prev.find(c => c.phone.replace(/\s+/g, '') === phone.replace(/\s+/g, ''));
+      if (existing) {
+        return prev.map(c => {
+          if (c.id === existing.id) {
+            const newPoints = c.points + earnedPoints;
+            const totalLiters = (c.totalLiters || 0) + liters;
+            const tier = totalLiters > 5000 ? 'PLATINUM' : totalLiters > 2000 ? 'GOLD' : 'SILVER';
+            return {
+              ...c,
+              points: newPoints,
+              totalLiters,
+              tier,
+              vehicleNo: vehicleNo || c.vehicleNo,
+              lastVisit: new Date().toISOString().split('T')[0]
+            };
+          }
+          return c;
+        });
+      } else {
+        const newCust = {
+          id: `loy-${Date.now()}`,
+          name: customerName || 'Retail Customer',
+          phone,
+          vehicleNo: vehicleNo || 'Not Provided',
+          points: earnedPoints,
+          tier: 'SILVER',
+          totalLiters: liters,
+          lastVisit: new Date().toISOString().split('T')[0]
+        };
+        return [newCust, ...prev];
+      }
+    });
+    return earnedPoints;
+  };
+
+  const redeemLoyaltyPoints = (phone, pointsToRedeem) => {
+    let success = false;
+    setLoyaltyCustomers(prev =>
+      prev.map(c => {
+        if (c.phone.replace(/\s+/g, '') === phone.replace(/\s+/g, '') && c.points >= pointsToRedeem) {
+          success = true;
+          return { ...c, points: c.points - pointsToRedeem };
+        }
+        return c;
+      })
+    );
+    return success;
+  };
+
+  // WhatsApp & SMS Automated Dispatcher (PDF Page 11 & 12)
+  const dispatchAlert = (alertData) => {
+    const newAlert = {
+      id: `alt-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'SENT',
+      ...alertData
+    };
+    setAutomatedAlerts(prev => [newAlert, ...prev]);
+    confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+    return newAlert;
+  };
+
+  // 5-Step Fuel Stock Mismatch Diagnostic Radar (PDF Page 5 & 6)
+  const get5StepMismatchAudit = (tankId) => {
+    const tank = tanks.find(t => t.id === tankId) || tanks[0];
+    const openingStock = tank.openingStock || 15000;
+    
+    // Step 1: Tank Physical Dip Stock vs ATG Electronic Stock
+    const currentDipStock = tank.currentStockLiters;
+    const atgStock = tank.atgStockLiters || currentDipStock;
+    const dipAtgVariance = atgStock - currentDipStock;
+    const step1Passed = Math.abs(dipAtgVariance) <= 50;
+
+    // Step 2: Totalizer Meter Readings for connected nozzles
+    const tankNozzles = nozzles.filter(n => n.tankId === tank.id);
+    const meterDispensedLiters = tankNozzles.reduce((sum, n) => {
+      const diff = Math.max(0, (n.closingReading || n.currentReading) - (n.openingReading || 0));
+      return sum + diff;
+    }, 0);
+    const step2Passed = meterDispensedLiters > 0;
+
+    // Step 3: Recent Inward Fuel Deliveries (Decantations)
+    const tankDecantations = decantations.filter(d => d.tankId === tank.id);
+    const totalDecantedLiters = tankDecantations.reduce((sum, d) => sum + (d.receivedQty || 0), 0);
+    const decantationShortage = tankDecantations.reduce((sum, d) => sum + (d.shortageLiters || 0), 0);
+    const step3Passed = decantationShortage <= 50;
+
+    // Step 4: Shift Closings & 5L Calibration Testing
+    const calibrationPouredBack = calibrationTests
+      .filter(c => c.fuelCode === tank.fuelCode)
+      .reduce((sum, c) => sum + (c.quantityDispensedL || 0), 0);
+    const step4Passed = true;
+
+    // Step 5: Allowed Evaporation / Temperature Variance (0.1% OMC legal metrology norm)
+    const allowedEvaporationLiters = Math.round(meterDispensedLiters * 0.001);
+    
+    // Formula from PDF:
+    // Expected Book Stock = Opening + Receipts - Meter Dispensed + Calibration Poured Back - Allowed Loss
+    const expectedBookStock = openingStock + totalDecantedLiters - meterDispensedLiters + calibrationPouredBack - allowedEvaporationLiters;
+    const stockDiscrepancyLiters = currentDipStock - expectedBookStock;
+    const discrepancyAmount = Math.round(Math.abs(stockDiscrepancyLiters) * tank.currentPrice);
+    const isBalanced = Math.abs(stockDiscrepancyLiters) <= (tank.capacityLiters * 0.0059); // 0.59% legal threshold
+
+    return {
+      tank,
+      openingStock,
+      totalDecantedLiters,
+      meterDispensedLiters,
+      calibrationPouredBack,
+      allowedEvaporationLiters,
+      expectedBookStock,
+      currentDipStock,
+      atgStock,
+      stockDiscrepancyLiters,
+      discrepancyAmount,
+      isBalanced,
+      step1: { name: 'Tank Dip vs ATG Gauge', passed: step1Passed, diff: dipAtgVariance, desc: step1Passed ? 'Physical dip matches ATG electronic sensor.' : `Variance of ${dipAtgVariance}L between Dip and ATG.` },
+      step2: { name: 'Dispenser Meter Totalizers', passed: step2Passed, dispensed: meterDispensedLiters, desc: `${meterDispensedLiters.toFixed(2)}L logged across ${tankNozzles.length} nozzles.` },
+      step3: { name: 'Tanker Decantation Inward', passed: step3Passed, shortage: decantationShortage, desc: `${totalDecantedLiters}L received with ${decantationShortage}L tanker shortage.` },
+      step4: { name: 'Shift & 5L Calibration Testing', passed: step4Passed, calibrationL: calibrationPouredBack, desc: `${calibrationPouredBack}L calibration fuel poured back into tank.` },
+      step5: { name: 'Evaporation & Density Shrinkage', passed: true, allowedLoss: allowedEvaporationLiters, desc: `${allowedEvaporationLiters}L allowed under IOCL/OMC operational guidelines.` }
+    };
+  };
+
   // Fleet Khata Payment Recording
   const recordFleetPayment = (accountId, amount, paymentMode, reference) => {
     setFleetAccounts(prev =>
@@ -564,6 +729,9 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider
       value={{
         stationInfo,
+        language,
+        setLanguage,
+        t,
         activeAppMode,
         setActiveAppMode,
         activePortalFleetId,
@@ -611,7 +779,13 @@ export const AppProvider = ({ children }) => {
         syncOfflineTransactions,
         iotStatus,
         setIotStatus,
-        calculateDensityAt15C
+        calculateDensityAt15C,
+        loyaltyCustomers,
+        earnLoyaltyPoints,
+        redeemLoyaltyPoints,
+        automatedAlerts,
+        dispatchAlert,
+        get5StepMismatchAudit
       }}
     >
       {children}

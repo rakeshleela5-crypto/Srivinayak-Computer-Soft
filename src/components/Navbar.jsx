@@ -11,7 +11,8 @@ import {
   Crown,
   Briefcase,
   Smartphone,
-  Truck
+  Truck,
+  Languages
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -24,7 +25,10 @@ export default function Navbar() {
     syncOfflineTransactions,
     activeAppMode,
     setActiveAppMode,
-    iotStatus
+    iotStatus,
+    language,
+    setLanguage,
+    t
   } = useApp();
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -35,10 +39,10 @@ export default function Navbar() {
   }, []);
 
   const appModes = [
-    { id: 'DEALER', label: 'Dealer App', icon: Crown, color: '#f59e0b' },
-    { id: 'MANAGER', label: 'Manager App', icon: Briefcase, color: '#38bdf8' },
-    { id: 'SALESMAN', label: 'Salesman App', icon: Smartphone, color: '#10b981' },
-    { id: 'FLEET_PORTAL', label: 'Credit Customer App', icon: Truck, color: '#a78bfa' }
+    { id: 'DEALER', label: t('dealerApp'), icon: Crown, color: '#f59e0b' },
+    { id: 'MANAGER', label: t('managerApp'), icon: Briefcase, color: '#38bdf8' },
+    { id: 'SALESMAN', label: t('salesmanApp'), icon: Smartphone, color: '#10b981' },
+    { id: 'FLEET_PORTAL', label: t('creditCustomerApp'), icon: Truck, color: '#a78bfa' }
   ];
 
   return (
@@ -173,6 +177,30 @@ export default function Navbar() {
             <Radio size={12} className="animate-pulse" />
             <span>ATG: {iotStatus.atgController}</span>
           </div>
+
+          {/* Vernacular Language Switcher (PDF Page 11: English / हिंदी) */}
+          <button
+            type="button"
+            onClick={() => setLanguage(prev => prev === 'en' ? 'hi' : 'en')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(255, 255, 255, 0.07)',
+              border: '1px solid rgba(255, 255, 255, 0.16)',
+              color: '#f8fafc',
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '0.74rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Switch Language / भाषा बदलें (English / हिंदी)"
+          >
+            <Languages size={13} color="#f59e0b" />
+            <span>{language === 'en' ? 'EN' : 'हिंदी'}</span>
+          </button>
 
           {/* Edge Online / Offline Toggle */}
           <button
