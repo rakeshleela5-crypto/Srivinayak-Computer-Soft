@@ -12,11 +12,14 @@ import ShiftsView from './views/ShiftsView';
 import LubesView from './views/LubesView';
 import SettlementView from './views/SettlementView';
 import IoTView from './views/IoTView';
+import DealerPortalView from './views/DealerPortalView';
+import SalesmanAppView from './views/SalesmanAppView';
+import CreditCustomerPortalView from './views/CreditCustomerPortalView';
 
 export default function App() {
-  const { activeTab } = useApp();
+  const { activeTab, activeAppMode } = useApp();
 
-  const renderActiveView = () => {
+  const renderManagerModule = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
@@ -41,18 +44,35 @@ export default function App() {
     }
   };
 
+  const renderMainContent = () => {
+    switch (activeAppMode) {
+      case 'DEALER':
+        return <DealerPortalView />;
+      case 'SALESMAN':
+        return <SalesmanAppView />;
+      case 'FLEET_PORTAL':
+        return <CreditCustomerPortalView />;
+      case 'MANAGER':
+      default:
+        return (
+          <div style={{ display: 'flex', flex: 1, gap: '16px' }}>
+            <Sidebar />
+            <main style={{ flex: 1, minWidth: 0 }}>
+              {renderManagerModule()}
+            </main>
+          </div>
+        );
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       {/* Top Navigation & Status Bar */}
       <Navbar />
 
-      {/* Main Body Layout: Sidebar + Active View Content */}
-      <div style={{ display: 'flex', flex: 1, padding: '12px 16px', gap: '16px' }}>
-        <Sidebar />
-        
-        <main style={{ flex: 1, minWidth: 0 }}>
-          {renderActiveView()}
-        </main>
+      {/* Main Body Layout */}
+      <div style={{ flex: 1, padding: '12px 16px' }}>
+        {renderMainContent()}
       </div>
 
       {/* Thermal Print Receipt Modal */}

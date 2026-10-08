@@ -12,7 +12,9 @@ import {
   INITIAL_LUBRICANTS,
   INITIAL_INWARD_DECANTATIONS,
   INITIAL_TRANSACTIONS,
-  INITIAL_CALIBRATION_TESTS
+  INITIAL_CALIBRATION_TESTS,
+  INITIAL_BANK_DEPOSITS,
+  INITIAL_FORECOURT_EXPENSES
 } from '../constants/initialData';
 
 const AppContext = createContext(null);
@@ -20,6 +22,12 @@ const AppContext = createContext(null);
 export const AppProvider = ({ children }) => {
   // Persistence with localStorage fallback
   const [stationInfo] = useState(STATION_INFO);
+  
+  // 4 Core Role Viewports from PDF: 'DEALER' | 'MANAGER' | 'SALESMAN' | 'FLEET_PORTAL'
+  const [activeAppMode, setActiveAppMode] = useState(() => {
+    return localStorage.getItem('svp_app_mode') || 'DEALER';
+  });
+
   const [fuelPrices, setFuelPrices] = useState(() => {
     const saved = localStorage.getItem('svp_prices');
     return saved ? JSON.parse(saved) : INITIAL_PRICES;
@@ -33,7 +41,10 @@ export const AppProvider = ({ children }) => {
     const saved = localStorage.getItem('svp_nozzles');
     return saved ? JSON.parse(saved) : INITIAL_NOZZLES;
   });
-  const [staff, setStaff] = useState(INITIAL_STAFF);
+  const [staff, setStaff] = useState(() => {
+    const saved = localStorage.getItem('svp_staff');
+    return saved ? JSON.parse(saved) : INITIAL_STAFF;
+  });
   const [currentShift, setCurrentShift] = useState(() => {
     const saved = localStorage.getItem('svp_shift');
     return saved ? JSON.parse(saved) : INITIAL_CURRENT_SHIFT;
@@ -58,13 +69,27 @@ export const AppProvider = ({ children }) => {
     const saved = localStorage.getItem('svp_calibrations');
     return saved ? JSON.parse(saved) : INITIAL_CALIBRATION_TESTS;
   });
+  const [bankDeposits, setBankDeposits] = useState(() => {
+    const saved = localStorage.getItem('svp_bank_deposits');
+    return saved ? JSON.parse(saved) : INITIAL_BANK_DEPOSITS;
+  });
+  const [forecourtExpenses, setForecourtExpenses] = useState(() => {
+    const saved = localStorage.getItem('svp_expenses');
+    return saved ? JSON.parse(saved) : INITIAL_FORECOURT_EXPENSES;
+  });
+
+  // Active Fleet Selected in Fleet Portal View
+  const [activePortalFleetId, setActivePortalFleetId] = useState(INITIAL_FLEET_ACCOUNTS[0]?.id || 'fl-01');
+
+  // Active Salesman Selected in Salesman Mobile View
+  const [activeSalesmanId, setActiveSalesmanId] = useState(INITIAL_STAFF[0]?.id || 'staff-1');
 
   // Edge & Hardware Status
   const [isOnline, setIsOnline] = useState(true);
   const [offlineQueue, setOfflineQueue] = useState([]);
-  const [activeRole, setActiveRole] = useState('Manager'); // 'Owner' | 'Manager' | 'Attendant'
+  const [activeRole, setActiveRole] = useState('Dealer (Owner)');
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [activeReceiptModal, setActiveReceiptModal] = useState(null); // Receipt object to display & print
+  const [activeReceiptModal, setActiveReceiptModal] = useState(null);
   const [priceUpdateLog, setPriceUpdateLog] = useState([
     { id: 'pul-1', fuelCode: 'MS', oldPrice: 102.30, newPrice: 102.84, effectiveDate: '2026-10-08 06:00', updatedBy: 'Vijay Sharma (Manager)' },
     { id: 'pul-2', fuelCode: 'HSD', oldPrice: 89.20, newPrice: 89.75, effectiveDate: '2026-10-08 06:00', updatedBy: 'Vijay Sharma (Manager)' }
@@ -79,6 +104,10 @@ export const AppProvider = ({ children }) => {
   });
 
   // Save changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('svp_app_mode', activeAppMode);
+  }, [activeAppMode]);
+
   useEffect(() => {
     localStorage.setItem('svp_prices', JSON.stringify(fuelPrices));
   }, [fuelPrices]);
@@ -100,27 +129,48 @@ export const AppProvider = ({ children }) => {
   }, [fleetAccounts]);
 
   useEffect(() => {
-    localStorage.setItem('svp_shift', JSON.stringify(currentShift));
-  }, [currentShift]);
+    localStorage.setItem('svp_staff', JSON.stringify(staff));
+  }, [staff]);
 
-  // Telemetry Heartbeat interval
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIotStatus(prev => ({
-        ...prev,
-        lastProbeHeartbeat: new Date().toLocaleTimeString()
-      }));
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    localStorage.setItem('svp_bank_deposits', JSON.stringify(bankDeposits));
+  }, [bankDeposits]);
 
-  // Standard ASTM 53B Density Conversion at 15°C approximation
-  // Standard petroleum thermal expansion coefficient ~0.00085 for MS and ~0.00075 for HSD
+  useEffect(() => {
+    localStorage.setItem('svp_expenses', JSON.stringify(forecourtExpenses));
+  }, [forecourtExpenses]);
+
+  // Standard ASTM 53B Density Conversion at 15°C
   const calculateDensityAt15C = (observedDensity, observedTemp, fuelType = 'MS') => {
     const coeff = fuelType === 'HSD' ? 0.00075 : 0.00085;
     const tempDelta = observedTemp - 15;
     const density15 = observedDensity / (1 - (coeff * tempDelta));
     return Number(density15.toFixed(1));
+  };
+
+  // Petroleum Strapping Table Calculator: Horizontal Cylinder dip mm -> Liters
+  const calculateDipToLiters = (tankId, dipMm) => {
+    const tank = tanks.find(t => t.id === tankId);
+    if (!tank || !tank.diameterMm || tank.diameterMm === 0) {
+      // Default fallback linear approximation if CNG
+      return Math.round(dipMm * 11.25);
+    }
+
+    const R = tank.diameterMm / 2; // radius in mm
+    const h = Math.min(dipMm, tank.diameterMm); // fluid height
+    const L = tank.lengthMm; // length in mm
+
+    if (h <= 0) return 0;
+    if (h >= tank.diameterMm) return tank.capacity;
+
+    // Segment of circle area: R^2 * acos((R - h)/R) - (R - h) * sqrt(2*R*h - h^2)
+    const theta = 2 * Math.acos((R - h) / R);
+    const crossSectionAreaMm2 = 0.5 * (R * R) * (theta - Math.sin(theta));
+    const volumeLiters = (crossSectionAreaMm2 * L) / 1000000; // mm^3 to Liters
+
+    // Add 2% allowance for 2:1 semi-ellipsoidal dished heads
+    const totalVolume = volumeLiters * 1.02;
+    return Math.min(tank.capacity, Math.round(totalVolume));
   };
 
   // Record a New Fuel / Lube Sale Transaction
@@ -156,21 +206,20 @@ export const AppProvider = ({ children }) => {
       syncStatus: isOnline ? 'SYNCED' : 'PENDING_OFFLINE'
     };
 
-    // 1. Update Nozzle Current Totalizer Reading
+    // Update Nozzle Totalizer
     setNozzles(prevNozzles =>
       prevNozzles.map(noz => {
         if (noz.id === saleData.nozzleId) {
-          const updatedMeter = Number((noz.currentMeter + Number(saleData.liters)).toFixed(2));
           return {
             ...noz,
-            currentMeter: updatedMeter
+            currentMeter: Number((noz.currentMeter + Number(saleData.liters)).toFixed(2))
           };
         }
         return noz;
       })
     );
 
-    // 2. Decrement corresponding Tank Stock & ATG Level
+    // Decrement Tank Stock
     const targetNozzle = nozzles.find(n => n.id === saleData.nozzleId);
     if (targetNozzle && targetNozzle.tankId) {
       setTanks(prevTanks =>
@@ -189,7 +238,7 @@ export const AppProvider = ({ children }) => {
       );
     }
 
-    // 3. Update Lube Stock if included
+    // Decrement Lube Stock
     if (saleData.lubeItems && saleData.lubeItems.length > 0) {
       setLubricants(prevLubes =>
         prevLubes.map(lube => {
@@ -205,7 +254,7 @@ export const AppProvider = ({ children }) => {
       );
     }
 
-    // 4. Update Shift Collected Balances
+    // Update Shift Totals
     setCurrentShift(prev => {
       const mode = saleData.paymentMode;
       const amt = Number(saleData.totalAmount);
@@ -218,7 +267,7 @@ export const AppProvider = ({ children }) => {
       };
     });
 
-    // 5. Update Khata / Credit Account if applicable
+    // Update Fleet Ledger
     if (saleData.creditAccountId) {
       setFleetAccounts(prevAccounts =>
         prevAccounts.map(acc => {
@@ -233,26 +282,99 @@ export const AppProvider = ({ children }) => {
       );
     }
 
-    // 6. Handle Offline Queue or Live transactions
     setTransactions(prev => [newTxn, ...prev]);
 
     if (!isOnline) {
       setOfflineQueue(prev => [...prev, newTxn]);
     } else {
-      // Trigger subtle celebration on checkout
-      confetti({
-        particleCount: 25,
-        spread: 45,
-        origin: { y: 0.85 }
-      });
+      confetti({ particleCount: 20, spread: 45, origin: { y: 0.85 } });
     }
 
-    // Set as active receipt for immediate thermal preview
     setActiveReceiptModal(newTxn);
     return newTxn;
   };
 
-  // Calibration / Weights & Measures 5L Testing (Pour back into tank, strictly 0 sales revenue)
+  // Flag Attendant Cash Shortage
+  const recordStaffShortage = (staffId, shortageAmount, shiftId, note) => {
+    setStaff(prevStaff =>
+      prevStaff.map(st => {
+        if (st.id === staffId) {
+          const newShortage = (st.totalShortagePending || 0) + Number(shortageAmount);
+          const historyEntry = {
+            date: new Date().toISOString().split('T')[0],
+            shiftId: shiftId || currentShift.id,
+            shortage: Number(shortageAmount),
+            status: 'UNRECOVERED',
+            note: note || 'Cash drop deficit logged at shift closing'
+          };
+          return {
+            ...st,
+            totalShortagePending: newShortage,
+            shortageHistory: [historyEntry, ...(st.shortageHistory || [])]
+          };
+        }
+        return st;
+      })
+    );
+  };
+
+  // Recover Attendant Shortage (from salary deduction or cash repayment)
+  const recoverStaffShortage = (staffId, recoveredAmount, recoveryMode = 'SALARY_DEDUCTION') => {
+    setStaff(prevStaff =>
+      prevStaff.map(st => {
+        if (st.id === staffId) {
+          const newShortage = Math.max(0, (st.totalShortagePending || 0) - Number(recoveredAmount));
+          return {
+            ...st,
+            totalShortagePending: newShortage,
+            shortageHistory: (st.shortageHistory || []).map(entry => {
+              if (entry.status === 'UNRECOVERED') {
+                return { ...entry, status: 'RECOVERED_VIA_' + recoveryMode };
+              }
+              return entry;
+            })
+          };
+        }
+        return st;
+      })
+    );
+  };
+
+  // Record Bank Cash Deposit
+  const recordBankDeposit = (depositData) => {
+    const newDep = {
+      id: `DEP-${Date.now().toString().slice(-6)}`,
+      date: new Date().toISOString().split('T')[0],
+      bankName: depositData.bankName,
+      accountNo: depositData.accountNo,
+      amount: Number(depositData.amount),
+      depositedBy: depositData.depositedBy || 'Vijay Sharma (Manager)',
+      challanNo: depositData.challanNo,
+      status: 'CLEARED'
+    };
+    setBankDeposits(prev => [newDep, ...prev]);
+    return newDep;
+  };
+
+  // Record Forecourt Petty Cash Expense
+  const recordExpense = (expenseData) => {
+    const newExp = {
+      id: `EXP-${Date.now().toString().slice(-6)}`,
+      date: new Date().toISOString().split('T')[0],
+      category: expenseData.category,
+      amount: Number(expenseData.amount),
+      paidTo: expenseData.paidTo,
+      approvedBy: expenseData.approvedBy || 'Vijay Sharma (Manager)'
+    };
+    setForecourtExpenses(prev => [newExp, ...prev]);
+    setCurrentShift(prev => ({
+      ...prev,
+      expenses: prev.expenses + Number(expenseData.amount)
+    }));
+    return newExp;
+  };
+
+  // Calibration Test
   const recordCalibrationTest = (nozzleId, testVolumeL = 5.0, observedVarianceMl = 0) => {
     const targetNozzle = nozzles.find(n => n.id === nozzleId);
     if (!targetNozzle) return;
@@ -270,14 +392,13 @@ export const AppProvider = ({ children }) => {
       testMeasureVolumeL: Number(testVolumeL),
       quantityDispensedL: Number(testVolumeL) + (observedVarianceMl / 1000),
       varianceMl: observedVarianceMl,
-      toleranceMl: 25, // +/- 25ml W&M allowance
+      toleranceMl: 25,
       status: Math.abs(observedVarianceMl) <= 25 ? 'PASSED' : 'OUT_OF_TOLERANCE',
       pouredBackToTank: targetNozzle.tankId,
-      inspector: activeRole === 'Owner' ? 'Shiva Kumar (Owner)' : 'Vijay Sharma (Manager)',
+      inspector: activeRole.includes('Owner') ? 'Shiva Kumar (Owner)' : 'Vijay Sharma (Manager)',
       weightsAndMeasuresStamp: 'VALID-Q4-2026'
     };
 
-    // Update Nozzle meter reading AND testing volume deduction
     setNozzles(prev =>
       prev.map(noz => {
         if (noz.id === nozzleId) {
@@ -295,7 +416,7 @@ export const AppProvider = ({ children }) => {
     return newTest;
   };
 
-  // Tanker Decantation & Inward Logistics
+  // Tanker Decantation
   const recordDecantation = (data) => {
     const decId = `DEC-${Date.now().toString().slice(-6)}`;
     const now = new Date();
@@ -327,10 +448,9 @@ export const AppProvider = ({ children }) => {
       convertedDensityAt15C: converted15,
       densityVariance: densityVar,
       status: Math.abs(densityVar) <= 3.0 && shortagePercent <= 0.59 ? 'VERIFIED_OK' : 'VARIANCE_FLAGGED',
-      verifiedBy: activeRole === 'Owner' ? 'Shiva Kumar (Owner)' : 'Vijay Sharma (Manager)'
+      verifiedBy: activeRole.includes('Owner') ? 'Shiva Kumar (Owner)' : 'Vijay Sharma (Manager)'
     };
 
-    // Update Tank Current Stock & ATG Level
     setTanks(prev =>
       prev.map(tank => {
         if (tank.id === data.tankId) {
@@ -354,16 +474,15 @@ export const AppProvider = ({ children }) => {
     return newDec;
   };
 
-  // Update Physical Tank Dip
+  // Record Physical Dip with Strapping Table Math
   const recordPhysicalDip = (tankId, physicalDipMm, observedTemp, observedDensity) => {
     const now = new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const calculatedVol = calculateDipToLiters(tankId, physicalDipMm);
 
     setTanks(prev =>
       prev.map(tank => {
         if (tank.id === tankId) {
-          // Standard dip chart approximation (liters ~ mm * multiplier)
-          const approxVol = Math.min(tank.capacity, Math.round(physicalDipMm * 11.25));
           const converted15 = calculateDensityAt15C(observedDensity, observedTemp, tank.fuelCode);
           return {
             ...tank,
@@ -371,7 +490,7 @@ export const AppProvider = ({ children }) => {
             temperatureC: Number(observedTemp),
             densityObserved: Number(observedDensity),
             densityAt15C: converted15,
-            currentStock: approxVol,
+            currentStock: calculatedVol,
             lastDipTime: dateStr
           };
         }
@@ -380,7 +499,7 @@ export const AppProvider = ({ children }) => {
     );
   };
 
-  // Update Fuel Prices with Audit Trail
+  // Update Fuel Prices
   const updateFuelPrice = (fuelCode, newPrice) => {
     const now = new Date();
     const effectiveDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -396,7 +515,6 @@ export const AppProvider = ({ children }) => {
       })
     );
 
-    // Also update nozzle rates
     setNozzles(prev =>
       prev.map(noz => {
         if (noz.fuelCode === fuelCode) {
@@ -412,7 +530,7 @@ export const AppProvider = ({ children }) => {
       oldPrice: oldP,
       newPrice: Number(newPrice),
       effectiveDate,
-      updatedBy: activeRole === 'Owner' ? 'Shiva Kumar (Station Owner)' : 'Vijay Sharma (Manager)'
+      updatedBy: activeRole.includes('Owner') ? 'Shiva Kumar (Station Owner)' : 'Vijay Sharma (Manager)'
     };
     setPriceUpdateLog(prev => [logEntry, ...prev]);
   };
@@ -433,14 +551,11 @@ export const AppProvider = ({ children }) => {
     );
   };
 
-  // Synchronize Offline Queue
+  // Offline Sync
   const syncOfflineTransactions = () => {
     if (offlineQueue.length === 0) return;
     setTransactions(prev =>
-      prev.map(t => ({
-        ...t,
-        syncStatus: 'SYNCED'
-      }))
+      prev.map(t => ({ ...t, syncStatus: 'SYNCED' }))
     );
     setOfflineQueue([]);
   };
@@ -449,11 +564,18 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider
       value={{
         stationInfo,
+        activeAppMode,
+        setActiveAppMode,
+        activePortalFleetId,
+        setActivePortalFleetId,
+        activeSalesmanId,
+        setActiveSalesmanId,
         fuelPrices,
         updateFuelPrice,
         priceUpdateLog,
         tanks,
         recordPhysicalDip,
+        calculateDipToLiters,
         recordDecantation,
         decantations,
         dispensers,
@@ -461,6 +583,12 @@ export const AppProvider = ({ children }) => {
         setNozzles,
         staff,
         setStaff,
+        recordStaffShortage,
+        recoverStaffShortage,
+        bankDeposits,
+        recordBankDeposit,
+        forecourtExpenses,
+        recordExpense,
         currentShift,
         setCurrentShift,
         fleetAccounts,

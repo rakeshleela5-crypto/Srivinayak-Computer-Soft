@@ -36,9 +36,11 @@ export const INITIAL_TANKS = [
     reorderLevel: 5000,
     atgLevel: 18420,
     physicalDipMm: 1640,
+    diameterMm: 2500,
+    lengthMm: 5200,
     temperatureC: 28.5,
     densityObserved: 742.8,
-    densityAt15C: 753.2, // Standard reference
+    densityAt15C: 753.2,
     waterBottomMm: 4,
     lastDipTime: "2026-10-08 06:00",
     color: "#f97316"
@@ -54,6 +56,8 @@ export const INITIAL_TANKS = [
     reorderLevel: 3000,
     atgLevel: 10790,
     physicalDipMm: 1420,
+    diameterMm: 2200,
+    lengthMm: 4000,
     temperatureC: 28.2,
     densityObserved: 746.1,
     densityAt15C: 756.9,
@@ -72,6 +76,8 @@ export const INITIAL_TANKS = [
     reorderLevel: 6000,
     atgLevel: 22190,
     physicalDipMm: 1850,
+    diameterMm: 2600,
+    lengthMm: 5800,
     temperatureC: 29.0,
     densityObserved: 828.4,
     densityAt15C: 837.6,
@@ -83,13 +89,15 @@ export const INITIAL_TANKS = [
     id: "tank-4",
     tankNumber: "UST-04",
     fuelCode: "HSD",
-    fuelName: "High Speed Diesel (Tank B - Heavy Commercial)",
+    fuelName: "High Speed Diesel (Tank B - Commercial)",
     capacity: 35000,
     currentStock: 14600,
     deadStock: 1800,
     reorderLevel: 7000,
     atgLevel: 14580,
     physicalDipMm: 1390,
+    diameterMm: 2800,
+    lengthMm: 5900,
     temperatureC: 29.1,
     densityObserved: 829.1,
     densityAt15C: 838.2,
@@ -101,13 +109,15 @@ export const INITIAL_TANKS = [
     id: "tank-5",
     tankNumber: "CNG-CASCADE-01",
     fuelCode: "CNG",
-    fuelName: "CNG Storage Bank",
+    fuelName: "CNG Cascade Bank",
     capacity: 4500,
     currentStock: 3200,
     deadStock: 300,
     reorderLevel: 800,
     atgLevel: 3200,
     physicalDipMm: 0,
+    diameterMm: 0,
+    lengthMm: 0,
     pressureBar: 220,
     temperatureC: 27.5,
     densityObserved: 0.72,
@@ -138,7 +148,7 @@ export const INITIAL_NOZZLES = [
     openingMeter: 1254820.50,
     currentMeter: 1255140.75, // dispensed 320.25 L this shift
     testingVolume: 10.0, // 2 x 5L calibration pours
-    status: "IDLE", // IDLE, DISPENSING, PAUSED
+    status: "IDLE",
     rate: 102.84,
     color: "#f97316"
   },
@@ -152,7 +162,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "XP95 Premium",
     flowRate: 35,
     openingMeter: 482100.10,
-    currentMeter: 482215.30, // 115.20 L
+    currentMeter: 482215.30,
     testingVolume: 5.0,
     status: "IDLE",
     rate: 108.40,
@@ -168,7 +178,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "Diesel (HSD)",
     flowRate: 45,
     openingMeter: 948210.00,
-    currentMeter: 948490.40, // 280.40 L
+    currentMeter: 948490.40,
     testingVolume: 5.0,
     status: "IDLE",
     rate: 89.75,
@@ -184,7 +194,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "Petrol (MS-91)",
     flowRate: 40,
     openingMeter: 812400.25,
-    currentMeter: 812780.80, // 380.55 L
+    currentMeter: 812780.80,
     testingVolume: 5.0,
     status: "IDLE",
     rate: 102.84,
@@ -200,7 +210,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "Diesel (HSD)",
     flowRate: 45,
     openingMeter: 1540100.00,
-    currentMeter: 1540620.50, // 520.50 L
+    currentMeter: 1540620.50,
     testingVolume: 10.0,
     status: "IDLE",
     rate: 89.75,
@@ -216,7 +226,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "Diesel High-Flow",
     flowRate: 90,
     openingMeter: 2410800.00,
-    currentMeter: 2411950.00, // 1150.00 L
+    currentMeter: 2411950.00,
     testingVolume: 10.0,
     status: "IDLE",
     rate: 89.75,
@@ -232,7 +242,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "CNG Fast Fill",
     flowRate: 20,
     openingMeter: 345100.00,
-    currentMeter: 345380.20, // 280.20 Kg
+    currentMeter: 345380.20,
     testingVolume: 0.0,
     status: "IDLE",
     rate: 85.50,
@@ -248,7 +258,7 @@ export const INITIAL_NOZZLES = [
     fuelName: "EV DC Fast 60kW",
     flowRate: 60,
     openingMeter: 18450.00,
-    currentMeter: 18575.40, // 125.40 kWh
+    currentMeter: 18575.40,
     testingVolume: 0.0,
     status: "IDLE",
     rate: 18.50,
@@ -257,12 +267,84 @@ export const INITIAL_NOZZLES = [
 ];
 
 export const INITIAL_STAFF = [
-  { id: "staff-1", name: "Ramesh Kumar", role: "Pump Attendant", island: "Island 1", shift: "Morning", phone: "+91 98451 11223", commissionRate: 1.5, active: true },
-  { id: "staff-2", name: "Suresh Patil", role: "Pump Attendant", island: "Island 2", shift: "Morning", phone: "+91 98452 22334", commissionRate: 1.5, active: true },
-  { id: "staff-3", name: "Ganesh Rao", role: "Senior Attendant", island: "Island 3", shift: "Morning", phone: "+91 98453 33445", commissionRate: 1.5, active: true },
-  { id: "staff-4", name: "Manjunath Hegde", role: "CNG Operator", island: "Island 4", shift: "Morning", phone: "+91 98454 44556", commissionRate: 1.2, active: true },
-  { id: "staff-5", name: "Vijay Sharma", role: "Station Manager", island: "Control Room", shift: "General", phone: "+91 98455 55667", commissionRate: 0, active: true },
-  { id: "staff-6", name: "Shiva Kumar (Owner)", role: "Station Owner", island: "Office", shift: "Executive", phone: "+91 98450 12345", commissionRate: 0, active: true }
+  { 
+    id: "staff-1", 
+    name: "Ramesh Kumar", 
+    role: "Pump Attendant", 
+    island: "Island 1", 
+    shift: "Morning", 
+    phone: "+91 98451 11223", 
+    commissionRate: 1.5, 
+    active: true,
+    totalShortagePending: 800.00, // Shortage flagged against Ramesh Kumar (as in PDF page 14)
+    shortageHistory: [
+      { date: "2026-10-07", shiftId: "SHIFT-20261007-02", calculatedSales: 50000, depositedCash: 49200, shortage: 800, status: "UNRECOVERED", note: "Shift cash bag shortage flagged" }
+    ]
+  },
+  { 
+    id: "staff-2", 
+    name: "Suresh Patil", 
+    role: "Pump Attendant", 
+    island: "Island 2", 
+    shift: "Morning", 
+    phone: "+91 98452 22334", 
+    commissionRate: 1.5, 
+    active: true,
+    totalShortagePending: 150.00,
+    shortageHistory: [
+      { date: "2026-10-06", shiftId: "SHIFT-20261006-01", calculatedSales: 62400, depositedCash: 62250, shortage: 150, status: "UNRECOVERED", note: "UPI cash exchange variance" }
+    ]
+  },
+  { 
+    id: "staff-3", 
+    name: "Ganesh Rao", 
+    role: "Senior Attendant", 
+    island: "Island 3", 
+    shift: "Morning", 
+    phone: "+91 98453 33445", 
+    commissionRate: 1.5, 
+    active: true,
+    totalShortagePending: 0.00,
+    shortageHistory: []
+  },
+  { 
+    id: "staff-4", 
+    name: "Manjunath Hegde", 
+    role: "CNG Operator", 
+    island: "Island 4", 
+    shift: "Morning", 
+    phone: "+91 98454 44556", 
+    commissionRate: 1.2, 
+    active: true,
+    totalShortagePending: 50.00,
+    shortageHistory: [
+      { date: "2026-10-05", shiftId: "SHIFT-20261005-01", calculatedSales: 28900, depositedCash: 28850, shortage: 50, status: "UNRECOVERED", note: "Coins shortfall" }
+    ]
+  },
+  { 
+    id: "staff-5", 
+    name: "Vijay Sharma", 
+    role: "Station Manager", 
+    island: "Control Room", 
+    shift: "General", 
+    phone: "+91 98455 55667", 
+    commissionRate: 0, 
+    active: true,
+    totalShortagePending: 0.00,
+    shortageHistory: []
+  },
+  { 
+    id: "staff-6", 
+    name: "Shiva Kumar (Owner)", 
+    role: "Station Owner", 
+    island: "Office", 
+    shift: "Executive", 
+    phone: "+91 98450 12345", 
+    commissionRate: 0, 
+    active: true,
+    totalShortagePending: 0.00,
+    shortageHistory: []
+  }
 ];
 
 export const INITIAL_CURRENT_SHIFT = {
@@ -338,7 +420,7 @@ export const INITIAL_FLEET_ACCOUNTS = [
     phone: "+91 94480 33221",
     gstin: "29AACCA9081B1ZU",
     creditLimit: 800000,
-    currentBalance: 720500, // Approaching credit limit
+    currentBalance: 720500,
     billingCycle: "Monthly",
     paymentTermsDays: 20,
     status: "ALERT",
@@ -360,6 +442,17 @@ export const INITIAL_LUBRICANTS = [
   { id: "lube-8", code: "ACC-WASH", name: "3M Car Shampoo Concentrated (500ml)", category: "Car Care & Polish", brand: "3M Retail", price: 310, stockQty: 15, minReorder: 6, gstPercent: 18 }
 ];
 
+export const INITIAL_BANK_DEPOSITS = [
+  { id: "DEP-1008-01", date: "2026-10-08", bankName: "State Bank of India (SBI)", accountNo: "30819284901", amount: 150000, depositedBy: "Vijay Sharma", challanNo: "CHL-SBI-8812", status: "CLEARED" },
+  { id: "DEP-1007-02", date: "2026-10-07", bankName: "HDFC Bank Cash Credit", accountNo: "502000849281", amount: 220000, depositedBy: "Vijay Sharma", challanNo: "CHL-HDFC-9914", status: "CLEARED" }
+];
+
+export const INITIAL_FORECOURT_EXPENSES = [
+  { id: "EXP-1008-01", date: "2026-10-08", category: "Generator Diesel", amount: 650, paidTo: "Station Backup GenSet", approvedBy: "Vijay Sharma" },
+  { id: "EXP-1008-02", date: "2026-10-08", category: "Staff Tea & Snacks", amount: 350, paidTo: "Udupi Sri Krishna Hotel", approvedBy: "Vijay Sharma" },
+  { id: "EXP-1008-03", date: "2026-10-08", category: "Forecourt Cleaning Materials", amount: 200, paidTo: "Sri Balaji Stores", approvedBy: "Vijay Sharma" }
+];
+
 export const INITIAL_INWARD_DECANTATIONS = [
   {
     id: "DEC-20261007-01",
@@ -375,11 +468,11 @@ export const INITIAL_INWARD_DECANTATIONS = [
     dipAfterDecantation: 19180,
     receivedQty: 11980,
     shortageLiters: 20,
-    shortagePercent: 0.17, // Well within 0.59% allowance
+    shortagePercent: 0.17,
     invoiceDensityAt15C: 752.5,
     observedTempC: 29.2,
     observedDensity: 742.0,
-    convertedDensityAt15C: 752.4, // Match tolerance: +/- 3.0 kg/m3
+    convertedDensityAt15C: 752.4,
     densityVariance: -0.1,
     status: "VERIFIED_OK",
     verifiedBy: "Vijay Sharma"
@@ -424,7 +517,7 @@ export const INITIAL_TRANSACTIONS = [
     lubeItems: [],
     lubeAmount: 0,
     totalAmount: 1600.00,
-    paymentMode: "UPI", // CASH, CARD, UPI, CREDIT, FLEET
+    paymentMode: "UPI",
     customerVehicle: "KA-04-ME-1122",
     customerName: "Sanjay Gowda",
     attendant: "Ramesh Kumar",
@@ -487,7 +580,7 @@ export const INITIAL_TRANSACTIONS = [
     nozzleNumber: "N-07",
     fuelCode: "CNG",
     fuelName: "CNG Fast Fill",
-    liters: 9.35, // kg
+    liters: 9.35,
     rate: 85.50,
     fuelAmount: 799.43,
     lubeItems: [],
@@ -512,8 +605,8 @@ export const INITIAL_CALIBRATION_TESTS = [
     fuelCode: "MS",
     testMeasureVolumeL: 5.0,
     quantityDispensedL: 5.0,
-    varianceMl: 0, // 0 ml error
-    toleranceMl: 25, // Weights & Measures permissible limit +/- 25 ml for 5L conical measure
+    varianceMl: 0,
+    toleranceMl: 25,
     status: "PASSED",
     pouredBackToTank: "tank-1",
     inspector: "Vijay Sharma",
@@ -527,7 +620,7 @@ export const INITIAL_CALIBRATION_TESTS = [
     fuelCode: "HSD",
     testMeasureVolumeL: 5.0,
     quantityDispensedL: 5.005,
-    varianceMl: 5, // +5ml
+    varianceMl: 5,
     toleranceMl: 25,
     status: "PASSED",
     pouredBackToTank: "tank-3",
