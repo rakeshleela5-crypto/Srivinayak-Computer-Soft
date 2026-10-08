@@ -48,6 +48,7 @@ export default function CreditCustomerPortalView() {
   const [newDriverPhone, setNewDriverPhone] = useState('+91 98450 00000');
   const [newFuelCode, setNewFuelCode] = useState('HSD');
   const [newMaxLiters, setNewMaxLiters] = useState(account.vehicles[0]?.dailyQuotaLiters || 150);
+  const [newCashAdvanceKharcha, setNewCashAdvanceKharcha] = useState(0);
   const [newNotes, setNewNotes] = useState('Authorized transport transit trip');
 
   const utPercent = Math.round((account.currentBalance / account.creditLimit) * 100);
@@ -73,6 +74,7 @@ export default function CreditCustomerPortalView() {
       driverPhone: newDriverPhone,
       fuelCode: newFuelCode,
       maxLiters: parseFloat(newMaxLiters) || 100,
+      cashAdvanceKharcha: parseFloat(newCashAdvanceKharcha) || 0,
       notes: newNotes
     });
     audioFX.playCashRegister();
@@ -88,7 +90,7 @@ export default function CreditCustomerPortalView() {
 👤 Driver: ${indent.driverName}
 🛢️ Product: *${indent.fuelCode}*
 📊 Authorized Limit: *${indent.maxLiters} Liters*
-🔐 Security PIN: *${indent.securityPin}*
+${indent.cashAdvanceKharcha > 0 ? `💵 Driver Cash Kharcha: *₹${indent.cashAdvanceKharcha}*\n` : ''}🔐 Security PIN: *${indent.securityPin}*
 ⏳ Valid Till: ${indent.expiresAt}
 
 _Present this Digital QR at Shree Vinayaka PetroSoft forecourt for immediate fueling._`;
@@ -275,6 +277,13 @@ _Present this Digital QR at Shree Vinayaka PetroSoft forecourt for immediate fue
                     <span>Max Quota: <strong style={{ color: '#38bdf8' }}>{indent.maxLiters} L</strong></span>
                   </div>
 
+                  {indent.cashAdvanceKharcha > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(251, 191, 36, 0.08)', border: '1px dashed rgba(251, 191, 36, 0.3)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem' }}>
+                      <span style={{ color: '#fbbf24', fontWeight: 600 }}>💵 Driver Kharcha:</span>
+                      <strong style={{ color: '#fbbf24', fontFamily: 'var(--font-mono)' }}>+₹{indent.cashAdvanceKharcha}</strong>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
                     <span>Expires: {indent.expiresAt}</span>
                     <span>PIN: <strong style={{ color: '#34d399' }}>{indent.securityPin}</strong></span>
@@ -335,12 +344,14 @@ _Present this Digital QR at Shree Vinayaka PetroSoft forecourt for immediate fue
                   <th style={{ padding: '10px 8px' }}>PRODUCT</th>
                   <th style={{ padding: '10px 8px' }}>VOLUME</th>
                   <th style={{ padding: '10px 8px' }}>RATE (₹)</th>
-                  <th style={{ padding: '10px 8px' }}>AMOUNT (₹)</th>
+                  <th style={{ padding: '10px 8px' }}>REBATE</th>
+                  <th style={{ padding: '10px 8px' }}>KHARCHA</th>
+                  <th style={{ padding: '10px 8px' }}>TOTAL (₹)</th>
                 </tr>
               </thead>
               <tbody>
                 {myTxns.map(t => (
-                  <tr key={t.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <tr key={t.id} style={{ borderBottom: '1px solid rgba(255,255,200,0.05)' }}>
                     <td style={{ padding: '10px 8px' }}>{t.timestamp}</td>
                     <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>{t.slipNo || t.receiptNo}</td>
                     <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#ffffff' }}>{t.customerVehicle}</td>
@@ -348,6 +359,12 @@ _Present this Digital QR at Shree Vinayaka PetroSoft forecourt for immediate fue
                     <td style={{ padding: '10px 8px' }}>{t.fuelCode}</td>
                     <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)' }}>{t.liters.toFixed(2)} L</td>
                     <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)' }}>₹{t.rate.toFixed(2)}</td>
+                    <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', color: t.discountAmount > 0 ? '#34d399' : 'var(--text-dim)' }}>
+                      {t.discountAmount > 0 ? `-₹${t.discountAmount.toFixed(2)}` : '—'}
+                    </td>
+                    <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', color: t.cashAdvance > 0 ? '#fbbf24' : 'var(--text-dim)', fontWeight: t.cashAdvance > 0 ? 700 : 400 }}>
+                      {t.cashAdvance > 0 ? `+₹${t.cashAdvance.toFixed(2)}` : '—'}
+                    </td>
                     <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#f87171' }}>
                       ₹{t.totalAmount.toFixed(2)}
                     </td>
@@ -462,6 +479,45 @@ _Present this Digital QR at Shree Vinayaka PetroSoft forecourt for immediate fue
               </div>
 
               <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 700 }}>
+                    Driver Cash Advance (Kharcha / Cash Credit ₹)
+                  </label>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                    Max Limit: ₹{account.maxCashAdvance || 2000}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max={account.maxCashAdvance || 2000}
+                  step="100"
+                  value={newCashAdvanceKharcha}
+                  onChange={(e) => setNewCashAdvanceKharcha(e.target.value)}
+                  placeholder="0"
+                  style={{ width: '100%', marginTop: '4px', fontFamily: 'var(--font-mono)', color: '#fbbf24', fontWeight: 800 }}
+                />
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                  {[0, 500, 1000, 2000].filter(a => a <= (account.maxCashAdvance || 2000)).map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setNewCashAdvanceKharcha(amt)}
+                      className="btn-secondary"
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        borderColor: newCashAdvanceKharcha === amt ? '#fbbf24' : 'rgba(255,255,255,0.1)',
+                        color: newCashAdvanceKharcha === amt ? '#fbbf24' : 'var(--text-muted)'
+                      }}
+                    >
+                      {amt === 0 ? 'None (₹0)' : `+₹${amt}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Transit Trip / Route Notes</label>
                 <input
                   type="text"
@@ -533,6 +589,12 @@ _Present this Digital QR at Shree Vinayaka PetroSoft forecourt for immediate fue
                 <span>Driver:</span>
                 <strong style={{ color: '#f8fafc' }}>{selectedIndentForQr.driverName}</strong>
               </div>
+              {selectedIndentForQr.cashAdvanceKharcha > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', color: '#fbbf24' }}>
+                  <span>Authorized Kharcha:</span>
+                  <strong>+₹{selectedIndentForQr.cashAdvanceKharcha}</strong>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                 <span>Valid Until:</span>
                 <strong style={{ color: '#f8fafc' }}>{selectedIndentForQr.expiresAt}</strong>

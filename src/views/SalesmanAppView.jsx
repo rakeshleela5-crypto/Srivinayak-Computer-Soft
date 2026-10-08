@@ -17,7 +17,10 @@ import {
   Camera,
   Scan,
   ShieldCheck,
-  X
+  X,
+  Lock,
+  Unlock,
+  KeyRound
 } from 'lucide-react';
 import DenominationCounter from '../components/DenominationCounter';
 import { audioFX } from '../utils/audioFX';
@@ -33,7 +36,9 @@ export default function SalesmanAppView() {
     currentShift,
     digitalIndents,
     redeemDigitalIndent,
-    shiftDenominations
+    shiftDenominations,
+    checkFleetCreditLimit,
+    managerOverridePin
   } = useApp();
 
   const activeStaff = staff.find(s => s.id === activeSalesmanId) || staff[0];
@@ -48,6 +53,11 @@ export default function SalesmanAppView() {
   const [vehicleNo, setVehicleNo] = useState('');
   const [selectedFleetId, setSelectedFleetId] = useState('');
   const [slipNo, setSlipNo] = useState('');
+  const [cashAdvance, setCashAdvance] = useState('');
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overridePinInput, setOverridePinInput] = useState('');
+  const [overrideError, setOverrideError] = useState('');
+  const [managerOverridden, setManagerOverridden] = useState(false);
   const [qrIndentModalOpen, setQrIndentModalOpen] = useState(false);
   const [showCashBagDrawer, setShowCashBagDrawer] = useState(false);
   const [scannedIndentAlert, setScannedIndentAlert] = useState(null);
@@ -56,6 +66,18 @@ export default function SalesmanAppView() {
   const rate = selectedNozzle?.rate || 100;
   const numAmount = parseFloat(quickAmount) || 0;
   const computedLiters = rate > 0 ? (numAmount / rate).toFixed(2) : '0.00';
+
+  // Fleet rebate & cash advance math
+  const selectedFleet = fleetAccounts.find(f => f.id === selectedFleetId);
+  const discountPerLiter = (paymentMode === 'CREDIT' && selectedFleet) ? (selectedFleet.discountPerLiter || 0) : 0;
+  const totalDiscount = discountPerLiter * parseFloat(computedLiters || 0);
+  const cashAdvanceAmt = paymentMode === 'CREDIT' ? (parseFloat(cashAdvance) || 0) : 0;
+  const netFuelAmount = Math.max(0, numAmount - totalDiscount);
+  const totalBilledAmount = netFuelAmount + cashAdvanceAmt;
+
+  const creditCheck = paymentMode === 'CREDIT' && selectedFleetId
+    ? checkFleetCreditLimit(selectedFleetId, totalBilledAmount)
+    : { allowed: true, hardLocked: false, isOverLimit: false, reason: '' };
 
   // Attendant Shift Metrics
   const myDispensedLiters = activeNozzleList.reduce((acc, n) => acc + (n.currentMeter - n.openingMeter), 0);
@@ -67,6 +89,11 @@ export default function SalesmanAppView() {
     setSelectedFleetId(indent.fleetId);
     setVehicleNo(indent.vehiclePlate);
     setSlipNo(indent.indentNumber);
+    if (indent.cashAdvanceKharcha > 0) {
+      setCashAdvance(indent.cashAdvanceKharcha.toString());
+    } else {
+      setCashAdvance('');
+    }
     
     const matchedNoz = nozzles.find(n => n.fuelCode === indent.fuelCode) || selectedNozzle;
     if (matchedNoz) {
@@ -76,13 +103,33 @@ export default function SalesmanAppView() {
     const effectiveRate = matchedNoz?.rate || rate;
     const computedAmt = Math.round(indent.maxLiters * effectiveRate);
     setQuickAmount(computedAmt.toString());
-    setScannedIndentAlert(`Verified Driver Indent ${indent.indentNumber} (${indent.companyName}) - Pre-approved ${indent.maxLiters}L`);
+    setScannedIndentAlert(`Verified Driver Indent ${indent.indentNumber} (${indent.companyName}) - Pre-approved ${indent.maxLiters}L${indent.cashAdvanceKharcha > 0 ? ` + Kharcha ₹${indent.cashAdvanceKharcha}` : ''}`);
     setQrIndentModalOpen(false);
+  };
+
+  const handleVerifyOverridePin = (e) => {
+    e.preventDefault();
+    if (overridePinInput === (managerOverridePin || '9999')) {
+      audioFX.playCashRegister();
+      setManagerOverridden(true);
+      setOverrideModalOpen(false);
+      setOverridePinInput('');
+      setOverrideError('');
+    } else {
+      audioFX.playBeep();
+      setOverrideError('Invalid Manager Security PIN. Default: 9999');
+    }
   };
 
   const handleQuickSaleSubmit = (e) => {
     e.preventDefault();
     if (numAmount <= 0) return;
+
+    if (paymentMode === 'CREDIT' && !creditCheck.allowed && !managerOverridden) {
+      audioFX.playBeep();
+      setOverrideModalOpen(true);
+      return;
+    }
 
     const newTxn = recordTransaction({
       nozzleId: selectedNozzle.id,
@@ -91,12 +138,15 @@ export default function SalesmanAppView() {
       fuelName: selectedNozzle.fuelName,
       liters: parseFloat(computedLiters),
       rate: rate,
-      fuelAmount: numAmount,
-      totalAmount: numAmount,
+      fuelAmount: netFuelAmount,
+      totalAmount: totalBilledAmount,
+      discountPerLiter: discountPerLiter,
+      discountAmount: totalDiscount,
+      cashAdvance: cashAdvanceAmt,
       paymentMode: paymentMode,
       creditAccountId: paymentMode === 'CREDIT' ? selectedFleetId : null,
       customerVehicle: vehicleNo.trim().toUpperCase() || 'WALK-IN',
-      customerName: paymentMode === 'CREDIT' ? 'Fleet Account' : 'Retail Customer',
+      customerName: paymentMode === 'CREDIT' ? (selectedFleet?.companyName || 'Fleet Account') : 'Retail Customer',
       attendant: activeStaff.name,
       slipNo: slipNo || null
     });
@@ -111,6 +161,8 @@ export default function SalesmanAppView() {
 
     setVehicleNo('');
     setSlipNo('');
+    setCashAdvance('');
+    setManagerOverridden(false);
     setScannedIndentAlert(null);
   };
 
@@ -392,26 +444,119 @@ export default function SalesmanAppView() {
 
         {/* If Khata Selected */}
         {paymentMode === 'CREDIT' && (
-          <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-            <label style={{ fontSize: '0.72rem', color: '#f87171', fontWeight: 700 }}>Select Fleet</label>
-            <select
-              value={selectedFleetId}
-              onChange={(e) => setSelectedFleetId(e.target.value)}
-              style={{ width: '100%', marginTop: '4px', marginBottom: '8px' }}
-              required
-            >
-              <option value="">-- Choose Corporate Fleet --</option>
-              {fleetAccounts.map(f => (
-                <option key={f.id} value={f.id}>{f.companyName}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Driver Indent Slip No"
-              value={slipNo}
-              onChange={(e) => setSlipNo(e.target.value)}
-              style={{ width: '100%' }}
-            />
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.72rem', color: '#f87171', fontWeight: 700 }}>Select Fleet Account</label>
+                {selectedFleet && (
+                  <span style={{ fontSize: '0.7rem', color: selectedFleet.currentBalance > selectedFleet.creditLimit ? '#ef4444' : '#94a3b8' }}>
+                    Bal: ₹{selectedFleet.currentBalance.toLocaleString()} / Limit ₹{selectedFleet.creditLimit.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <select
+                value={selectedFleetId}
+                onChange={(e) => {
+                  setSelectedFleetId(e.target.value);
+                  setManagerOverridden(false);
+                }}
+                style={{ width: '100%', marginTop: '4px' }}
+                required
+              >
+                <option value="">-- Choose Corporate Fleet --</option>
+                {fleetAccounts.map(f => (
+                  <option key={f.id} value={f.id}>{f.companyName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Contract Rebate Tag */}
+            {discountPerLiter > 0 && (
+              <div style={{ padding: '6px 10px', borderRadius: '6px', background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#34d399' }}>
+                <span>🎯 Contract Rebate Applied:</span>
+                <strong>-₹{discountPerLiter.toFixed(2)}/L (-₹{totalDiscount.toFixed(2)})</strong>
+              </div>
+            )}
+
+            {/* Driver Cash Advance Kharcha Input */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.72rem', color: '#fbbf24', fontWeight: 700 }}>
+                  Driver Cash Advance ("Kharcha" ₹)
+                </label>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                  Max: ₹{selectedFleet?.maxCashAdvance || 2000}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <input
+                  type="number"
+                  min="0"
+                  max={selectedFleet?.maxCashAdvance || 2000}
+                  step="100"
+                  placeholder="0"
+                  value={cashAdvance}
+                  onChange={(e) => setCashAdvance(e.target.value)}
+                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fbbf24' }}
+                />
+                {[500, 1000].map(amt => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setCashAdvance(amt.toString())}
+                    className="btn-secondary"
+                    style={{ padding: '6px 10px', fontSize: '0.75rem', color: '#fbbf24', borderColor: cashAdvance === amt.toString() ? '#fbbf24' : 'rgba(255,255,255,0.1)' }}
+                  >
+                    +₹{amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Driver Indent Slip No</label>
+              <input
+                type="text"
+                placeholder="Driver Indent Slip No"
+                value={slipNo}
+                onChange={(e) => setSlipNo(e.target.value)}
+                style={{ width: '100%', marginTop: '4px' }}
+              />
+            </div>
+
+            {/* Overlimit Warning & Override Control */}
+            {!creditCheck.allowed && !managerOverridden && (
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Lock size={18} color="#ef4444" />
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#ef4444' }}>CREDIT HARD-LOCK ACTIVE</div>
+                    <div style={{ fontSize: '0.68rem', color: '#fca5a5' }}>{creditCheck.reason}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOverrideModalOpen(true)}
+                  style={{ padding: '6px 10px', borderRadius: '6px', background: '#dc2626', color: '#ffffff', border: 'none', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <KeyRound size={12} /> Override PIN
+                </button>
+              </div>
+            )}
+
+            {managerOverridden && (
+              <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#4ade80' }}>
+                <Unlock size={14} /> <strong>Manager Override Active:</strong> Overlimit dispensing authorized.
+              </div>
+            )}
+
+            {/* Total Billed Net Meter */}
+            <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Net Billed:</span>
+              <strong style={{ color: '#fbbf24', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}>
+                ₹{netFuelAmount.toFixed(2)} {cashAdvanceAmt > 0 ? `+ ₹${cashAdvanceAmt} Kharcha = ₹${totalBilledAmount.toFixed(2)}` : ''}
+              </strong>
+            </div>
           </div>
         )}
 
@@ -419,9 +564,24 @@ export default function SalesmanAppView() {
         <button
           onClick={handleQuickSaleSubmit}
           className="btn-action-green"
-          style={{ padding: '16px', fontSize: '1.1rem', justifyContent: 'center', borderRadius: '12px' }}
+          style={{
+            padding: '16px',
+            fontSize: '1.1rem',
+            justifyContent: 'center',
+            borderRadius: '12px',
+            background: (!creditCheck.allowed && !managerOverridden) ? 'linear-gradient(135deg, #7f1d1d, #991b1b)' : undefined,
+            borderColor: (!creditCheck.allowed && !managerOverridden) ? '#ef4444' : undefined
+          }}
         >
-          <CheckCircle size={22} /> Dispense & Print Slip (₹{numAmount.toFixed(2)})
+          {(!creditCheck.allowed && !managerOverridden) ? (
+            <>
+              <Lock size={22} /> 🚨 BILLING LOCKED (OVERLIMIT) - CLICK TO UNLOCK
+            </>
+          ) : (
+            <>
+              <CheckCircle size={22} /> Dispense & Print Slip (₹{totalBilledAmount.toFixed(2)})
+            </>
+          )}
         </button>
 
       </div>
@@ -544,6 +704,81 @@ export default function SalesmanAppView() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Manager Override PIN Modal */}
+      {overrideModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 120,
+          padding: '16px'
+        }}>
+          <div className="glass-card" style={{ width: '380px', padding: '24px', background: '#0b1329', border: '1px solid #ef4444' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.2)' }}>
+                <KeyRound size={22} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  Manager Credit Override
+                </h3>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                  Authorize Overlimit Dispensing
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '10px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', color: '#fca5a5', marginBottom: '14px' }}>
+              {creditCheck.reason || 'Account has breached sanctioned credit limit.'}
+            </div>
+
+            <form onSubmit={handleVerifyOverridePin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Enter Master Manager PIN</label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  placeholder="••••"
+                  autoFocus
+                  value={overridePinInput}
+                  onChange={(e) => setOverridePinInput(e.target.value)}
+                  style={{ width: '100%', marginTop: '4px', fontSize: '1.4rem', textAlign: 'center', letterSpacing: '6px', fontFamily: 'var(--font-mono)' }}
+                  required
+                />
+              </div>
+
+              {overrideError && (
+                <div style={{ fontSize: '0.75rem', color: '#ef4444', textAlign: 'center', fontWeight: 700 }}>
+                  {overrideError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <button type="submit" className="btn-action-green" style={{ flex: 1, justifyContent: 'center' }}>
+                  Authorize
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverrideModalOpen(false);
+                    setOverridePinInput('');
+                    setOverrideError('');
+                  }}
+                  className="btn-secondary"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

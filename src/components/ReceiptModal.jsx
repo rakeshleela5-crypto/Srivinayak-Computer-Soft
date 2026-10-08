@@ -100,10 +100,26 @@ export default function ReceiptModal() {
                 <span>{item.total.toFixed(2)}</span>
               </div>
             ))}
+
+            {/* Contractual Transporter Rebate */}
+            {txn.discountAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontSize: '10px', color: '#16a34a', fontWeight: 700 }}>
+                <span>FLEET REBATE (-₹{Number(txn.discountPerLiter || 0).toFixed(2)}/L)</span>
+                <span>-₹{Number(txn.discountAmount).toFixed(2)}</span>
+              </div>
+            )}
+
+            {/* Driver Cash Advance ("Kharcha") */}
+            {txn.cashAdvance > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontSize: '10px', color: '#d97706', fontWeight: 800 }}>
+                <span>DRIVER KHARCHA (CASH ADVANCE)</span>
+                <span>+₹{Number(txn.cashAdvance).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           <div style={{ fontSize: '13px', fontWeight: 900, display: 'flex', justifyContent: 'space-between', margin: '8px 0' }}>
-            <span>NET PAYABLE:</span>
+            <span>NET BILLED:</span>
             <span>₹{txn.totalAmount.toFixed(2)}</span>
           </div>
 
@@ -117,6 +133,18 @@ export default function ReceiptModal() {
               <span>₹{(txn.totalAmount * 0.18 / 1.18).toFixed(2)}</span>
             </div>
           </div>
+
+          {/* Driver Cash Advance Acknowledgment Line */}
+          {txn.cashAdvance > 0 && (
+            <div style={{ marginTop: '8px', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '9px', textAlign: 'left', background: '#f8fafc' }}>
+              <div style={{ fontWeight: 800, color: '#0f172a' }}>CASH KHARCHA ACKNOWLEDGMENT:</div>
+              <div>Received ₹{Number(txn.cashAdvance).toFixed(2)} in cash from pump cashier.</div>
+              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', borderTop: '1px dotted #94a3b8', paddingTop: '4px' }}>
+                <span>Driver Sign: _____________</span>
+                <span>Cashier: {txn.attendant}</span>
+              </div>
+            </div>
+          )}
 
           {/* Barcode representation */}
           <div style={{ textAlign: 'center', marginTop: '12px', borderTop: '1px dashed #475569', paddingTop: '8px' }}>

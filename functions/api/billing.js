@@ -84,6 +84,10 @@ export async function onRequestPost(context) {
       txnId,
       receiptNo,
       timestamp,
+      totalAmount: Number(totalAmount),
+      fuelAmount: Number(body.fuelAmount || totalAmount),
+      cashAdvance: Number(body.cashAdvance || 0),
+      discountAmount: Number(body.discountAmount || 0),
       status: "COMPLETED",
       edgeLocation: request.cf?.colo || "EDGE-LOCAL",
       message: "Transaction logged securely on Cloudflare Edge"

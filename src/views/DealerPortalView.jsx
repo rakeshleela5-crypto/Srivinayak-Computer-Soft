@@ -19,7 +19,10 @@ import {
   MessageSquare,
   Send,
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  FileText,
+  ShieldCheck,
+  FileCode
 } from 'lucide-react';
 
 export default function DealerPortalView() {
@@ -37,7 +40,9 @@ export default function DealerPortalView() {
     recordExpense,
     recoverStaffShortage,
     automatedAlerts,
-    dispatchAlert
+    dispatchAlert,
+    setActiveTab,
+    setActiveAppMode
   } = useApp();
 
   const [depositModalOpen, setDepositModalOpen] = useState(false);
@@ -183,6 +188,75 @@ export default function DealerPortalView() {
           </div>
         </div>
 
+      </div>
+
+      {/* Executive Petroleum Statutory & Accounting Suite */}
+      <div className="glass-card" style={{ padding: '20px 22px', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={20} color="#38bdf8" /> Executive Statutory Compliance & CA Audit Center
+            </h3>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+              One-click regulatory day books, margin profitability, 194Q tax audits, and Tally Prime integrations
+            </div>
+          </div>
+          <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>OMC CERTIFIED</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          <div 
+            onClick={() => { setActiveAppMode('MANAGER'); setActiveTab('daybook'); }}
+            style={{ padding: '14px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', cursor: 'pointer', transition: 'all 0.15s' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={18} color="#38bdf8" />
+              <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>2-Page Day Book</strong>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+              Standard 2-page oil company daily book: wet-stock dips, nozzle totalizers & cash tally.
+            </div>
+          </div>
+
+          <div 
+            onClick={() => { setActiveAppMode('MANAGER'); setActiveTab('margin'); }}
+            style={{ padding: '14px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'pointer', transition: 'all 0.15s' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={18} color="#34d399" />
+              <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>Dealer Margins (₹/L)</strong>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+              Live commission analyzer (MS ₹3.82, HSD ₹2.60) minus overheads for daily net profit.
+            </div>
+          </div>
+
+          <div 
+            onClick={() => { setActiveAppMode('MANAGER'); setActiveTab('tax'); }}
+            style={{ padding: '14px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.25)', cursor: 'pointer', transition: 'all 0.15s' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={18} color="#c084fc" />
+              <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>LFR & 194Q TDS Center</strong>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+              OMC License Fee Recovery + 0.1% TDS purchase tax calculator with ITNS 281 audit log.
+            </div>
+          </div>
+
+          <div 
+            onClick={() => { setActiveAppMode('MANAGER'); setActiveTab('tally'); }}
+            style={{ padding: '14px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', cursor: 'pointer', transition: 'all 0.15s' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileCode size={18} color="#fbbf24" />
+              <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>Tally Prime & CA Export</strong>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+              1-Click Tally XML import file & CA-ready CSV registers for sales and purchases.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Discrepancy & Loss Prevention Radar (The Heart of the PDF) */}

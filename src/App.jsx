@@ -12,6 +12,10 @@ import ShiftsView from './views/ShiftsView';
 import LubesView from './views/LubesView';
 import SettlementView from './views/SettlementView';
 import IoTView from './views/IoTView';
+import DayBookView from './views/DayBookView';
+import TaxComplianceView from './views/TaxComplianceView';
+import DealerMarginView from './views/DealerMarginView';
+import TallyExportView from './views/TallyExportView';
 import DealerPortalView from './views/DealerPortalView';
 import SalesmanAppView from './views/SalesmanAppView';
 import CreditCustomerPortalView from './views/CreditCustomerPortalView';
@@ -25,6 +29,8 @@ export default function App() {
         return <DashboardView />;
       case 'pos':
         return <POSView />;
+      case 'daybook':
+        return <DayBookView />;
       case 'nozzles':
         return <NozzlesView />;
       case 'tanks':
@@ -33,6 +39,12 @@ export default function App() {
         return <FleetKhataView />;
       case 'shifts':
         return <ShiftsView />;
+      case 'margin':
+        return <DealerMarginView />;
+      case 'tax':
+        return <TaxComplianceView />;
+      case 'tally':
+        return <TallyExportView />;
       case 'lubes':
         return <LubesView />;
       case 'settlement':

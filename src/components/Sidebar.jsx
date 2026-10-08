@@ -10,7 +10,11 @@ import {
   Package,
   FileSpreadsheet,
   Cpu,
-  BadgePercent
+  BadgePercent,
+  FileText,
+  ShieldCheck,
+  TrendingUp,
+  FileCode
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -19,10 +23,14 @@ export default function Sidebar() {
   const navItems = [
     { id: 'dashboard', label: t('forecourtMonitor'), icon: LayoutDashboard, badge: null },
     { id: 'pos', label: t('posBilling'), icon: Fuel, badge: 'Live' },
+    { id: 'daybook', label: '2-Page Day Book', icon: FileText, badge: 'DSS' },
     { id: 'nozzles', label: t('nozzlesTotalizers'), icon: Gauge, badge: null },
     { id: 'tanks', label: t('wetStockDip'), icon: Database, badge: null },
     { id: 'fleet', label: t('fleetKhata'), icon: Truck, badge: null },
     { id: 'shifts', label: t('shiftsHandover'), icon: Users2, badge: null },
+    { id: 'margin', label: 'Dealer Margin & Profit', icon: TrendingUp, badge: '₹/L' },
+    { id: 'tax', label: 'LFR & 194Q Tax', icon: ShieldCheck, badge: 'Audit' },
+    { id: 'tally', label: 'Tally Prime & CA Export', icon: FileCode, badge: 'XML' },
     { id: 'lubes', label: t('lubesNonFuel'), icon: Package, badge: null },
     { id: 'settlement', label: t('dailySettlement'), icon: FileSpreadsheet, badge: 'Audit' },
     { id: 'iot', label: t('iotPulse'), icon: Cpu, badge: 'Edge' }

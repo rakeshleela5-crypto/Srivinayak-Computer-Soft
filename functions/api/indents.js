@@ -129,7 +129,8 @@ export async function onRequestPost(context) {
     const id = `IND-${Math.floor(1000 + Math.random() * 9000)}`;
     const indentNumber = `IND-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
     const securityPin = Math.floor(1000 + Math.random() * 9000).toString();
-    const qrPayload = `INDENT|${fleetId}|${(vehiclePlate || "").toUpperCase()}|${fuelCode || "HSD"}|${maxLiters}|${securityPin}`;
+    const cashAdvanceKharcha = Number(body.cashAdvanceKharcha) || 0;
+    const qrPayload = `INDENT|${fleetId}|${(vehiclePlate || "").toUpperCase()}|${fuelCode || "HSD"}|${maxLiters}|${cashAdvanceKharcha}|${securityPin}`;
     const createdAt = now.toISOString();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -166,6 +167,7 @@ export async function onRequestPost(context) {
         driverName,
         fuelCode,
         maxLiters,
+        cashAdvanceKharcha,
         securityPin,
         qrPayload,
         createdAt,

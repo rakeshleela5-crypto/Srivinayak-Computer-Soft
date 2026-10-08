@@ -11,7 +11,8 @@ import {
   Layers, 
   FileText,
   Calendar,
-  Share2
+  Share2,
+  FileCode
 } from 'lucide-react';
 
 export default function SettlementView() {
@@ -22,7 +23,8 @@ export default function SettlementView() {
     currentShift, 
     transactions, 
     decantations, 
-    calibrationTests 
+    calibrationTests,
+    setActiveTab
   } = useApp();
 
   const [selectedDate, setSelectedDate] = useState('2026-10-08');
@@ -119,18 +121,31 @@ export default function SettlementView() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setActiveTab('daybook')}
+            className="btn-action-green"
+          >
+            <FileText size={16} /> Open Full 2-Page Day Book
+          </button>
+          <button 
+            onClick={() => setActiveTab('tally')}
+            className="btn-secondary"
+            style={{ borderColor: '#f59e0b', color: '#fbbf24' }}
+          >
+            <FileCode size={16} /> Tally XML & CA Data
+          </button>
           <button 
             onClick={() => window.print()}
             className="btn-primary"
           >
-            <Printer size={18} /> Print Official DSS Sheet
+            <Printer size={18} /> Print Shift DSS
           </button>
           <button 
             onClick={handleExportCsv}
             className="btn-secondary"
           >
-            <Download size={18} /> Export Tally / ERP CSV
+            <Download size={18} /> Export CSV
           </button>
         </div>
       </div>

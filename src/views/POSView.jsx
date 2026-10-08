@@ -17,7 +17,12 @@ import {
   Scan,
   Camera,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  Unlock,
+  KeyRound,
+  Coins,
+  Tag
 } from 'lucide-react';
 import { audioFX } from '../utils/audioFX';
 
@@ -34,7 +39,10 @@ export default function POSView() {
     earnLoyaltyPoints,
     redeemLoyaltyPoints,
     digitalIndents,
-    redeemDigitalIndent
+    redeemDigitalIndent,
+    strictCreditLock,
+    managerOverridePin,
+    checkFleetCreditLimit
   } = useApp();
 
   // Active Dispensing Form State
@@ -52,6 +60,15 @@ export default function POSView() {
   const [slipNo, setSlipNo] = useState('');
   const [indentScannerOpen, setIndentScannerOpen] = useState(false);
 
+  // Driver Cash Advance ("Driver Kharcha")
+  const [driverKharcha, setDriverKharcha] = useState('');
+
+  // Manager Override Modal for Credit Limit Hard-Lock
+  const [managerOverrideModalOpen, setManagerOverrideModalOpen] = useState(false);
+  const [managerPinInput, setManagerPinInput] = useState('');
+  const [isManagerOverrideActive, setIsManagerOverrideActive] = useState(false);
+  const [managerOverrideError, setManagerOverrideError] = useState('');
+
   const handlePickIndent = (indent) => {
     audioFX.playQrBeep();
     setPaymentMode('CREDIT');
@@ -59,6 +76,11 @@ export default function POSView() {
     setVehicleNo(indent.vehiclePlate);
     setDriverName(indent.driverName);
     setSlipNo(indent.indentNumber);
+    
+    // Auto-fill authorized driver cash advance if present in indent
+    if (indent.cashAdvanceKharcha > 0) {
+      setDriverKharcha(indent.cashAdvanceKharcha.toString());
+    }
     
     const targetNoz = nozzles.find(n => n.fuelCode === indent.fuelCode);
     if (targetNoz) {
@@ -75,31 +97,48 @@ export default function POSView() {
 
   const selectedNozzle = nozzles.find(n => n.id === selectedNozzleId) || nozzles[0];
 
-  // Calculate live values
+  // Base Pump Rate
   const rate = selectedNozzle ? selectedNozzle.rate : 100;
-  
+
+  // Selected Fleet Account Check & Contractual Discount per Liter (Rebate)
+  const currentFleet = fleetAccounts.find(f => f.id === selectedFleetId);
+  const discountPerLiter = (paymentMode === 'CREDIT' && currentFleet?.discountPerLiter) 
+    ? Number(currentFleet.discountPerLiter) 
+    : 0;
+  const effectiveFuelRate = Math.max(1, rate - discountPerLiter);
+
+  // Calculate live values with Transporter Rebate
   let calculatedLiters = 0;
   let calculatedFuelAmount = 0;
+  let discountAmount = 0;
 
   if (billingMode === 'AMOUNT') {
     calculatedFuelAmount = parseFloat(amountInput) || 0;
-    calculatedLiters = rate > 0 ? calculatedFuelAmount / rate : 0;
+    calculatedLiters = effectiveFuelRate > 0 ? calculatedFuelAmount / effectiveFuelRate : 0;
+    discountAmount = calculatedLiters * discountPerLiter;
   } else {
     calculatedLiters = parseFloat(litersInput) || 0;
-    calculatedFuelAmount = calculatedLiters * rate;
+    const baseAmount = calculatedLiters * rate;
+    discountAmount = calculatedLiters * discountPerLiter;
+    calculatedFuelAmount = Math.max(0, baseAmount - discountAmount);
   }
 
+  // Driver Cash Advance ("Kharcha")
+  const cashAdvanceAmount = (paymentMode === 'CREDIT') ? (parseFloat(driverKharcha) || 0) : 0;
   const lubesTotalAmount = selectedLubes.reduce((sum, item) => sum + item.total, 0);
-  const grossTotal = calculatedFuelAmount + lubesTotalAmount;
+  const grossTotal = calculatedFuelAmount + lubesTotalAmount + cashAdvanceAmount;
   const netTotalPayable = Math.max(0, grossTotal - redeemedPoints);
 
   const matchedLoyaltyMember = customerPhone.trim().length >= 8 
     ? loyaltyCustomers.find(c => c.phone.replace(/\s+/g, '').includes(customerPhone.trim().replace(/\s+/g, '')))
     : null;
 
-  // Selected Fleet Account Check
-  const currentFleet = fleetAccounts.find(f => f.id === selectedFleetId);
-  const isCreditOverlimit = currentFleet && (currentFleet.currentBalance + netTotalPayable > currentFleet.creditLimit);
+  // Credit Limit Hard-Lock Validation
+  const creditCheck = paymentMode === 'CREDIT' && selectedFleetId
+    ? checkFleetCreditLimit(selectedFleetId, netTotalPayable)
+    : { allowed: true, hardLocked: false, isOverlimit: false };
+
+  const isHardLockedNow = creditCheck.hardLocked && !isManagerOverrideActive;
 
   // Quick Amount Buttons
   const setQuickAmount = (val) => {
@@ -131,6 +170,19 @@ export default function POSView() {
     setSelectedLubes(selectedLubes.filter(item => item.id !== lubeId));
   };
 
+  const handleManagerPinSubmit = (e) => {
+    e.preventDefault();
+    if (managerPinInput.trim() === managerOverridePin) {
+      setIsManagerOverrideActive(true);
+      setManagerOverrideModalOpen(false);
+      setManagerPinInput('');
+      setManagerOverrideError('');
+      audioFX.playCashRegister();
+    } else {
+      setManagerOverrideError('Invalid Manager Security PIN. Authorization denied.');
+    }
+  };
+
   // Submit Transaction
   const handleSubmitSale = (e) => {
     e.preventDefault();
@@ -144,6 +196,12 @@ export default function POSView() {
       return;
     }
 
+    // Check strict credit hard-lock
+    if (isHardLockedNow) {
+      setManagerOverrideModalOpen(true);
+      return;
+    }
+
     const salePayload = {
       nozzleId: selectedNozzle.id,
       nozzleNumber: selectedNozzle.nozzleNumber,
@@ -151,9 +209,12 @@ export default function POSView() {
       fuelName: selectedNozzle.fuelName,
       liters: calculatedLiters,
       rate: rate,
-      fuelAmount: calculatedFuelAmount,
+      fuelAmount: calculatedFuelAmount + discountAmount, // Base Fuel before rebate
+      discountPerLiter: discountPerLiter,
+      discountAmount: discountAmount,
       lubeItems: selectedLubes,
       lubeAmount: lubesTotalAmount,
+      cashAdvance: cashAdvanceAmount, // Driver Cash Advance (Kharcha)
       totalAmount: netTotalPayable,
       paymentMode: paymentMode,
       creditAccountId: paymentMode === 'CREDIT' ? selectedFleetId : null,
@@ -192,6 +253,8 @@ export default function POSView() {
     setSelectedLubes([]);
     setSlipNo('');
     setDriverName('');
+    setDriverKharcha('');
+    setIsManagerOverrideActive(false);
   };
 
   return (
@@ -537,10 +600,81 @@ export default function POSView() {
                 </div>
               </div>
 
-              {isCreditOverlimit && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f87171', fontSize: '0.75rem', marginTop: '8px' }}>
+              {/* Driver Cash Advance ("Cash Credit / Driver Kharcha") */}
+              <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Coins size={15} /> Driver Cash Advance ("Driver Kharcha")
+                  </label>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                    Disbursed from till & debited to Khata
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#fbbf24', fontWeight: 800 }}>₹</span>
+                    <input
+                      type="number"
+                      placeholder="0.00 (e.g. 500, 1000)"
+                      value={driverKharcha}
+                      onChange={(e) => setDriverKharcha(e.target.value)}
+                      style={{ width: '100%', paddingLeft: '26px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fbbf24' }}
+                    />
+                  </div>
+                  <button type="button" onClick={() => setDriverKharcha('500')} className="btn-secondary" style={{ padding: '6px 8px', fontSize: '0.7rem' }}>+500</button>
+                  <button type="button" onClick={() => setDriverKharcha('1000')} className="btn-secondary" style={{ padding: '6px 8px', fontSize: '0.7rem' }}>+1000</button>
+                  <button type="button" onClick={() => setDriverKharcha('2000')} className="btn-secondary" style={{ padding: '6px 8px', fontSize: '0.7rem' }}>+2000</button>
+                  {driverKharcha && (
+                    <button type="button" onClick={() => setDriverKharcha('')} style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.75rem' }}>Clear</button>
+                  )}
+                </div>
+              </div>
+
+              {/* Transporter Contractual Rebate Tag */}
+              {discountPerLiter > 0 && (
+                <div style={{ marginTop: '8px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#34d399' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Tag size={14} />
+                    <span>Contractual Fleet Rebate: <strong>-₹{discountPerLiter.toFixed(2)}/L</strong></span>
+                  </div>
+                  <span>Savings: <strong>-₹{discountAmount.toFixed(2)}</strong></span>
+                </div>
+              )}
+
+              {/* Credit Limit Hard-Lock / Overlimit Status */}
+              {creditCheck.hardLocked && (
+                <div style={{ marginTop: '10px', padding: '12px', borderRadius: '10px', background: isManagerOverrideActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)', border: isManagerOverrideActive ? '1px solid #10b981' : '1px solid #ef4444' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isManagerOverrideActive ? <Unlock size={18} color="#10b981" /> : <Lock size={18} color="#ef4444" />}
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 800, color: isManagerOverrideActive ? '#34d399' : '#f87171' }}>
+                          {isManagerOverrideActive ? 'MANAGER OVERRIDE ACTIVE: Emergency Dispensing Authorized' : 'STRICT CREDIT LIMIT HARD-LOCK: BILLING BLOCKED'}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          Balance: ₹{currentFleet.currentBalance.toLocaleString()} + Ticket: ₹{netTotalPayable.toLocaleString()} exceeds Sanctioned Limit ₹{currentFleet.creditLimit.toLocaleString()} (Excess: ₹{creditCheck.excessAmount.toLocaleString()})
+                        </div>
+                      </div>
+                    </div>
+
+                    {!isManagerOverrideActive && (
+                      <button
+                        type="button"
+                        onClick={() => setManagerOverrideModalOpen(true)}
+                        className="btn-secondary"
+                        style={{ fontSize: '0.72rem', padding: '4px 10px', color: '#fbbf24', borderColor: '#f59e0b' }}
+                      >
+                        <KeyRound size={13} /> Manager Override PIN
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!creditCheck.hardLocked && creditCheck.isOverlimit && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f59e0b', fontSize: '0.75rem', marginTop: '8px', padding: '6px 10px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px' }}>
                   <AlertCircle size={14} />
-                  <span>Warning: This transaction exceeds the fleet credit limit!</span>
+                  <span>Notice: Fleet balance exceeds credit limit by ₹{creditCheck.excessAmount.toLocaleString()} (Soft Warning - Hard-lock disabled).</span>
                 </div>
               )}
             </div>
@@ -640,15 +774,46 @@ export default function POSView() {
           </div>
 
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <div style={{ fontSize: '0.72rem', color: '#64748b', letterSpacing: '0.05em' }}>TOTAL SALE AMOUNT</div>
+            <div style={{ fontSize: '0.72rem', color: '#64748b', letterSpacing: '0.05em' }}>TOTAL NET PAYABLE</div>
             <div className="led-meter" style={{ fontSize: '2.6rem', padding: '8px 16px', margin: '6px 0', letterSpacing: '0.08em' }}>
               ₹{netTotalPayable.toFixed(2)}
             </div>
-            {lubesTotalAmount > 0 && (
-              <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
-                (Fuel: ₹{calculatedFuelAmount.toFixed(2)} + Lubes: ₹{lubesTotalAmount.toFixed(2)})
+
+            {/* Itemized Tender & Product Breakdown */}
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '8px', padding: '10px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '8px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Fuel ({calculatedLiters.toFixed(2)}L @ ₹{rate.toFixed(2)}):</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>₹{(calculatedLiters * rate).toFixed(2)}</span>
               </div>
-            )}
+
+              {discountAmount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399', fontWeight: 700 }}>
+                  <span>Contractual Rebate (-₹{discountPerLiter.toFixed(2)}/L):</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>-₹{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {lubesTotalAmount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                  <span>Lubes & Specialties:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>+₹{lubesTotalAmount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {cashAdvanceAmount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontWeight: 800 }}>
+                  <span>Driver Cash Advance (Kharcha):</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>+₹{cashAdvanceAmount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {redeemedPoints > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                  <span>Loyalty Discount:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>-₹{redeemedPoints.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Quick Dynamic QR Code Mockup when UPI selected */}
@@ -668,13 +833,38 @@ export default function POSView() {
         </div>
 
         {/* Action Button: Dispense & Generate Bill */}
-        <button
-          onClick={handleSubmitSale}
-          className="btn-action-green"
-          style={{ width: '100%', padding: '16px', fontSize: '1.1rem', justifyContent: 'center' }}
-        >
-          <CheckCircle size={22} /> Complete Sale & Print Slip (₹{netTotalPayable.toFixed(2)})
-        </button>
+        {isHardLockedNow ? (
+          <button
+            type="button"
+            onClick={() => setManagerOverrideModalOpen(true)}
+            style={{
+              width: '100%',
+              padding: '16px',
+              fontSize: '1rem',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+              color: '#ffffff',
+              border: '1px solid #f87171',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              boxShadow: '0 8px 20px rgba(239, 68, 68, 0.35)'
+            }}
+          >
+            <Lock size={20} /> ⛔ CREDIT HARD-LOCKED (Click to Override)
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmitSale}
+            className="btn-action-green"
+            style={{ width: '100%', padding: '16px', fontSize: '1.1rem', justifyContent: 'center' }}
+          >
+            <CheckCircle size={22} /> Complete Sale & Print Slip (₹{netTotalPayable.toFixed(2)})
+          </button>
+        )}
 
       </div>
 
@@ -796,6 +986,87 @@ export default function POSView() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Manager Emergency Override PIN Modal for Hard-Lock */}
+      {managerOverrideModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 110,
+          padding: '16px'
+        }}>
+          <div className="glass-card" style={{ width: '420px', maxWidth: '95vw', padding: '24px', background: '#0f172a', border: '1px solid #ef4444', borderRadius: '16px', boxShadow: '0 20px 50px rgba(239, 68, 68, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <KeyRound size={22} color="#fbbf24" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                  Manager Credit Override
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => { setManagerOverrideModalOpen(false); setManagerOverrideError(''); }}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', marginBottom: '14px', fontSize: '0.78rem', color: '#fca5a5' }}>
+              <strong>Strict Hard-Lock Active:</strong> {currentFleet?.companyName} has an outstanding balance of <strong>₹{currentFleet?.currentBalance.toLocaleString()}</strong> exceeding their limit of <strong>₹{currentFleet?.creditLimit.toLocaleString()}</strong>.
+              <div style={{ marginTop: '4px', color: '#fecaca' }}>
+                Enter the Master Manager PIN (Default: <code>9999</code>) to authorize an emergency single-ticket billing exemption.
+              </div>
+            </div>
+
+            <form onSubmit={handleManagerPinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f8fafc' }}>
+                  Enter Master Manager Security PIN
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  placeholder="Enter 4-digit PIN..."
+                  value={managerPinInput}
+                  onChange={(e) => setManagerPinInput(e.target.value)}
+                  style={{ width: '100%', marginTop: '6px', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '8px', fontFamily: 'monospace' }}
+                  required
+                />
+              </div>
+
+              {managerOverrideError && (
+                <div style={{ color: '#ef4444', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center' }}>
+                  {managerOverrideError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setManagerOverrideModalOpen(false); setManagerOverrideError(''); }}
+                  className="btn-secondary"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ flex: 1, justifyContent: 'center', background: '#f59e0b', color: '#0f172a', fontWeight: 800 }}
+                >
+                  Authorize Exemption
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -20,6 +20,19 @@ import {
   INITIAL_DIGITAL_INDENTS,
   TRANSLATIONS
 } from '../constants/initialData';
+import {
+  DEFAULT_DEALER_MARGINS,
+  DEFAULT_LFR_RATES,
+  calculateLfrRecovery,
+  calculateSection194Q,
+  calculateDealerProfitAndMargin
+} from '../utils/petroleumTaxEngine';
+import {
+  generateTallyPrimeXml,
+  generateCaSalesRegisterCsv,
+  generateCaPurchaseRegisterCsv,
+  downloadFile
+} from '../utils/tallyXmlGenerator';
 
 const AppContext = createContext(null);
 
@@ -185,6 +198,38 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('svp_expenses', JSON.stringify(forecourtExpenses));
   }, [forecourtExpenses]);
 
+  // Strict Credit Limit Hard-Lock (stops billing if account balance exceeds credit limit)
+  const [strictCreditLock, setStrictCreditLock] = useState(() => {
+    const saved = localStorage.getItem('svp_strict_credit_lock');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  // Per-Liter Dealer Margin Configuration (Government & OMC Benchmarks)
+  const [dealerMargins, setDealerMargins] = useState(() => {
+    const saved = localStorage.getItem('svp_dealer_margins');
+    return saved ? JSON.parse(saved) : (stationInfo.dealerMargins || DEFAULT_DEALER_MARGINS);
+  });
+
+  // OMC LFR (License Fee Recovery) Rates per KL
+  const [lfrRates, setLfrRates] = useState(() => {
+    const saved = localStorage.getItem('svp_lfr_rates');
+    return saved ? JSON.parse(saved) : (stationInfo.lfrRates || DEFAULT_LFR_RATES);
+  });
+
+  const managerOverridePin = stationInfo.managerOverridePin || "9999";
+
+  useEffect(() => {
+    localStorage.setItem('svp_strict_credit_lock', JSON.stringify(strictCreditLock));
+  }, [strictCreditLock]);
+
+  useEffect(() => {
+    localStorage.setItem('svp_dealer_margins', JSON.stringify(dealerMargins));
+  }, [dealerMargins]);
+
+  useEffect(() => {
+    localStorage.setItem('svp_lfr_rates', JSON.stringify(lfrRates));
+  }, [lfrRates]);
+
   // Standard ASTM 53B Density Conversion at 15°C
   const calculateDensityAt15C = (observedDensity, observedTemp, fuelType = 'MS') => {
     const coeff = fuelType === 'HSD' ? 0.00075 : 0.00085;
@@ -225,6 +270,10 @@ export const AppProvider = ({ children }) => {
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
+    const cashAdv = Number(saleData.cashAdvance || 0);
+    const discAmt = Number(saleData.discountAmount || 0);
+    const discPerL = Number(saleData.discountPerLiter || 0);
+
     const newTxn = {
       id: txnId,
       receiptNo,
@@ -236,8 +285,11 @@ export const AppProvider = ({ children }) => {
       liters: Number(saleData.liters),
       rate: Number(saleData.rate),
       fuelAmount: Number(saleData.fuelAmount),
+      discountPerLiter: discPerL,
+      discountAmount: discAmt,
       lubeItems: saleData.lubeItems || [],
       lubeAmount: Number(saleData.lubeAmount || 0),
+      cashAdvance: cashAdv, // Driver Cash Advance ("Kharcha")
       totalAmount: Number(saleData.totalAmount),
       paymentMode: saleData.paymentMode,
       creditAccountId: saleData.creditAccountId || null,
@@ -308,7 +360,8 @@ export const AppProvider = ({ children }) => {
         cashCollected: mode === 'CASH' ? prev.cashCollected + amt : prev.cashCollected,
         cardCollected: mode === 'CARD' ? prev.cardCollected + amt : prev.cardCollected,
         upiCollected: mode === 'UPI' ? prev.upiCollected + amt : prev.upiCollected,
-        creditIssued: (mode === 'CREDIT' || mode === 'FLEET') ? prev.creditIssued + amt : prev.creditIssued
+        creditIssued: (mode === 'CREDIT' || mode === 'FLEET') ? prev.creditIssued + amt : prev.creditIssued,
+        driverKharchaDisbursed: (prev.driverKharchaDisbursed || 0) + cashAdv
       };
     });
 
@@ -764,11 +817,13 @@ export const AppProvider = ({ children }) => {
       fuelName: indentData.fuelName || 'High Speed Diesel',
       maxLiters: Number(indentData.maxLiters) || 100,
       maxAmount: Number(indentData.maxAmount) || (Number(indentData.maxLiters) * 89.75),
+      cashAdvanceKharcha: Number(indentData.cashAdvanceKharcha || 0), // Pre-approved Driver Cash Advance
+      discountPerLiter: Number(indentData.discountPerLiter || 0),
       createdAt: `${dateStr} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 16),
       status: 'ACTIVE',
       securityPin: pin,
-      qrPayload: `INDENT|${indentData.fleetId}|${(indentData.vehiclePlate || '').toUpperCase()}|${indentData.fuelCode || 'HSD'}|${indentData.maxLiters}|${pin}`,
+      qrPayload: `INDENT|${indentData.fleetId}|${(indentData.vehiclePlate || '').toUpperCase()}|${indentData.fuelCode || 'HSD'}|${indentData.maxLiters}|${Number(indentData.cashAdvanceKharcha || 0)}|${pin}`,
       notes: indentData.notes || 'Digital Fleet Indent Slip'
     };
 
@@ -787,6 +842,124 @@ export const AppProvider = ({ children }) => {
   const saveShiftDenominations = (denomBreakdown) => {
     setShiftDenominations(denomBreakdown);
     localStorage.setItem('svp_denominations', JSON.stringify(denomBreakdown));
+  };
+
+  // Enterprise Fleet Account Update
+  const updateFleetAccount = (fleetId, updates) => {
+    setFleetAccounts(prev =>
+      prev.map(acc => acc.id === fleetId ? { ...acc, ...updates } : acc)
+    );
+  };
+
+  // Strict Credit Limit Hard-Lock Validator
+  const checkFleetCreditLimit = (fleetId, newBillAmount = 0) => {
+    const fleet = fleetAccounts.find(f => f.id === fleetId);
+    if (!fleet) return { allowed: true, hardLocked: false, isOverlimit: false, creditLimit: 0, currentBalance: 0 };
+    const projectedBalance = fleet.currentBalance + Number(newBillAmount || 0);
+    const isOverlimit = projectedBalance > fleet.creditLimit;
+    const isHardLocked = (fleet.hardLockEnabled !== false) && strictCreditLock && isOverlimit;
+    return {
+      allowed: !isHardLocked,
+      hardLocked: isHardLocked,
+      isOverlimit,
+      creditLimit: fleet.creditLimit,
+      currentBalance: fleet.currentBalance,
+      projectedBalance,
+      excessAmount: Math.max(0, projectedBalance - fleet.creditLimit),
+      fleet
+    };
+  };
+
+  const toggleStrictCreditLock = (val) => {
+    setStrictCreditLock(prev => val !== undefined ? val : !prev);
+  };
+
+  const updateDealerMargins = (newMargins) => {
+    setDealerMargins(prev => ({ ...prev, ...newMargins }));
+  };
+
+  const updateLfrRates = (newRates) => {
+    setLfrRates(prev => ({ ...prev, ...newRates }));
+  };
+
+  // LFR and TDS Calculation Engine
+  const getLfrAndTdsReport = (customVolumes) => {
+    // Default to volumes dispensed from nozzles if not specified
+    let volumes = customVolumes;
+    if (!volumes) {
+      const msL = nozzles.filter(n => n.fuelCode === 'MS').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0);
+      const xp95L = nozzles.filter(n => n.fuelCode === 'XP95').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0);
+      const hsdL = nozzles.filter(n => n.fuelCode === 'HSD').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0);
+      volumes = { MS: Math.max(1250, msL), XP95: Math.max(380, xp95L), HSD: Math.max(3450, hsdL) };
+    }
+    return calculateLfrRecovery(volumes, lfrRates);
+  };
+
+  // Section 194Q TDS (0.1%) Purchase Tax Audit
+  const getSection194QReport = (currentInvoice = 0) => {
+    return calculateSection194Q({
+      cumulativeFyPurchases: stationInfo.fyPurchasesOMC || 18450000,
+      currentInvoiceAmount: Number(currentInvoice),
+      thresholdLimit: 5000000,
+      isPanCompliant: true
+    });
+  };
+
+  // Per-Liter Dealer Margin & Daily Net Profit
+  const getDealerProfitReport = () => {
+    const fuelVolumes = {
+      MS: nozzles.filter(n => n.fuelCode === 'MS').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0),
+      XP95: nozzles.filter(n => n.fuelCode === 'XP95').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0),
+      HSD: nozzles.filter(n => n.fuelCode === 'HSD').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0),
+      CNG: nozzles.filter(n => n.fuelCode === 'CNG').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0),
+      EV: nozzles.filter(n => n.fuelCode === 'EV').reduce((sum, n) => sum + (n.currentMeter - n.openingMeter), 0)
+    };
+
+    const lubesSales = transactions.reduce((sum, t) => sum + (t.lubeAmount || 0), 0);
+    const expenses = forecourtExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const shortages = staff.reduce((sum, s) => sum + (s.totalShortagePending || 0), 0);
+    const discounts = transactions.reduce((sum, t) => sum + (t.discountAmount || 0), 0);
+    
+    // Daily LFR Allocation
+    const lfr = getLfrAndTdsReport(fuelVolumes);
+    const dailyLfrCost = lfr.baseLfr.total;
+
+    return calculateDealerProfitAndMargin({
+      fuelVolumes,
+      fuelMargins: dealerMargins,
+      lubesSalesAmount: lubesSales,
+      forecourtExpenses: expenses,
+      attendantShortages: shortages,
+      transporterDiscountsGiven: discounts,
+      lfrCost: dailyLfrCost
+    });
+  };
+
+  // 1-Click Tally Prime & CA Exports
+  const exportTallyXml = (targetDate = '2026-10-08') => {
+    const xml = generateTallyPrimeXml({
+      stationInfo,
+      transactions,
+      decantations,
+      fleetAccounts,
+      currentShift,
+      forecourtExpenses,
+      date: targetDate
+    });
+    downloadFile(xml, `TallyPrime_Vouchers_${targetDate}.xml`, 'application/xml');
+    return xml;
+  };
+
+  const exportCaSalesCsv = () => {
+    const csv = generateCaSalesRegisterCsv(transactions, stationInfo);
+    downloadFile(csv, `CA_Sales_Register_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+    return csv;
+  };
+
+  const exportCaPurchaseCsv = () => {
+    const csv = generateCaPurchaseRegisterCsv(decantations, stationInfo);
+    downloadFile(csv, `CA_Purchase_194Q_Register_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+    return csv;
   };
 
   return (
@@ -854,7 +1027,23 @@ export const AppProvider = ({ children }) => {
         createDigitalIndent,
         redeemDigitalIndent,
         shiftDenominations,
-        saveShiftDenominations
+        saveShiftDenominations,
+        // Enterprise Petroleum Management Extensions
+        strictCreditLock,
+        toggleStrictCreditLock,
+        managerOverridePin,
+        dealerMargins,
+        updateDealerMargins,
+        lfrRates,
+        updateLfrRates,
+        updateFleetAccount,
+        checkFleetCreditLimit,
+        getLfrAndTdsReport,
+        getSection194QReport,
+        getDealerProfitReport,
+        exportTallyXml,
+        exportCaSalesCsv,
+        exportCaPurchaseCsv
       }}
     >
       {children}

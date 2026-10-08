@@ -13,7 +13,12 @@ import {
   Coins,
   ShieldCheck,
   UserCheck,
-  QrCode
+  QrCode,
+  Lock,
+  Unlock,
+  Tag,
+  Edit3,
+  X
 } from 'lucide-react';
 
 export default function FleetKhataView() {
@@ -22,7 +27,10 @@ export default function FleetKhataView() {
     recordFleetPayment, 
     transactions,
     activeRole,
-    digitalIndents
+    digitalIndents,
+    strictCreditLock,
+    toggleStrictCreditLock,
+    updateFleetAccount
   } = useApp();
 
   const [selectedAccount, setSelectedAccount] = useState(fleetAccounts[0]);
@@ -31,6 +39,36 @@ export default function FleetKhataView() {
   const [payAmount, setPayAmount] = useState('');
   const [payMode, setPayMode] = useState('NEFT');
   const [payRef, setPayRef] = useState('');
+
+  // Edit Contract Terms Modal State
+  const [editTermsModalOpen, setEditTermsModalOpen] = useState(false);
+  const [editLimit, setEditLimit] = useState(selectedAccount?.creditLimit || 500000);
+  const [editRebate, setEditRebate] = useState(selectedAccount?.discountPerLiter || 0);
+  const [editHardLock, setEditHardLock] = useState(selectedAccount?.hardLockEnabled !== false);
+  const [editMaxKharcha, setEditMaxKharcha] = useState(selectedAccount?.maxCashAdvance || 2000);
+
+  const openEditModal = (acc) => {
+    setSelectedAccount(acc);
+    setEditLimit(acc.creditLimit);
+    setEditRebate(acc.discountPerLiter || 0);
+    setEditHardLock(acc.hardLockEnabled !== false);
+    setEditMaxKharcha(acc.maxCashAdvance || 2000);
+    setEditTermsModalOpen(true);
+  };
+
+  const handleSaveTerms = (e) => {
+    e.preventDefault();
+    if (!selectedAccount) return;
+    const updates = {
+      creditLimit: parseFloat(editLimit) || selectedAccount.creditLimit,
+      discountPerLiter: parseFloat(editRebate) || 0,
+      hardLockEnabled: editHardLock,
+      maxCashAdvance: parseFloat(editMaxKharcha) || 0
+    };
+    updateFleetAccount(selectedAccount.id, updates);
+    setSelectedAccount(prev => ({ ...prev, ...updates }));
+    setEditTermsModalOpen(false);
+  };
 
   // Filter accounts
   const filteredAccounts = fleetAccounts.filter(acc => 
@@ -53,7 +91,42 @@ export default function FleetKhataView() {
   const utilizationPercent = selectedAccount ? Math.round((selectedAccount.currentBalance / selectedAccount.creditLimit) * 100) : 0;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 2fr)', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      
+      {/* Top Global Control Bar: Strict Credit Limit Hard-Lock */}
+      <div className="glass-card" style={{ padding: '16px 20px', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%)', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: strictCreditLock ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {strictCreditLock ? <Lock size={22} color="#ef4444" /> : <Unlock size={22} color="#f59e0b" />}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                Strict Credit Limit Hard-Lock Engine
+              </h3>
+              <span className={strictCreditLock ? "badge badge-alert" : "badge badge-active"} style={{ fontSize: '0.7rem' }}>
+                {strictCreditLock ? "HARD-LOCK ENFORCED" : "SOFT WARNING ONLY"}
+              </span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+              {strictCreditLock 
+                ? "Hard-Lock Active: Forecourt POS and Salesman apps are strictly blocked from dispensing when fleet balance exceeds sanctioned limit."
+                : "Soft Warning Active: Pump operators receive overlimit alerts but can authorize billing without manager override."}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => toggleStrictCreditLock()}
+          className="btn-secondary"
+          style={{ borderColor: strictCreditLock ? '#ef4444' : '#10b981', color: strictCreditLock ? '#fca5a5' : '#34d399' }}
+        >
+          {strictCreditLock ? <Unlock size={16} /> : <Lock size={16} />}
+          {strictCreditLock ? "Disable Hard-Lock (Soft Mode)" : "Enable Strict Hard-Lock"}
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 2fr)', gap: '20px' }}>
       
       {/* Left Column: Fleet Directory & Search */}
       <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -157,6 +230,13 @@ export default function FleetKhataView() {
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
+                  onClick={() => openEditModal(selectedAccount)}
+                  className="btn-secondary"
+                  style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+                >
+                  <Edit3 size={16} /> Edit Terms & Rebate
+                </button>
+                <button 
                   onClick={() => setPaymentModalOpen(true)}
                   className="btn-primary"
                 >
@@ -172,7 +252,7 @@ export default function FleetKhataView() {
             </div>
 
             {/* Credit Status Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginTop: '20px' }}>
               <div style={{ background: 'rgba(2, 6, 23, 0.5)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>OUTSTANDING BALANCE</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 800, color: '#f87171', marginTop: '2px' }}>
@@ -189,6 +269,19 @@ export default function FleetKhataView() {
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>AVAILABLE CREDIT</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 800, color: '#34d399', marginTop: '2px' }}>
                   ₹{Math.max(0, selectedAccount.creditLimit - selectedAccount.currentBalance).toLocaleString('en-IN')}
+                </div>
+              </div>
+              <div style={{ background: 'rgba(2, 6, 23, 0.5)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>CONTRACT REBATE</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 800, color: '#34d399', marginTop: '2px' }}>
+                  ₹{(selectedAccount.discountPerLiter || 0).toFixed(2)} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ Litre</span>
+                </div>
+              </div>
+              <div style={{ background: 'rgba(2, 6, 23, 0.5)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>HARD-LOCK POLICY</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: selectedAccount.hardLockEnabled !== false ? '#f87171' : '#f59e0b', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {selectedAccount.hardLockEnabled !== false ? <Lock size={15} /> : <Unlock size={15} />}
+                  <span>{selectedAccount.hardLockEnabled !== false ? 'HARD-LOCK ON' : 'WARNING ONLY'}</span>
                 </div>
               </div>
             </div>
@@ -270,9 +363,10 @@ export default function FleetKhataView() {
                       <th style={{ padding: '8px' }}>VEHICLE</th>
                       <th style={{ padding: '8px' }}>DRIVER / SLIP NO</th>
                       <th style={{ padding: '8px' }}>PRODUCT</th>
-                      <th style={{ padding: '8px' }}>LITERS</th>
-                      <th style={{ padding: '8px' }}>RATE (₹)</th>
-                      <th style={{ padding: '8px' }}>AMOUNT (₹)</th>
+                      <th style={{ padding: '8px' }}>LITERS @ RATE</th>
+                      <th style={{ padding: '8px' }}>REBATE (-₹)</th>
+                      <th style={{ padding: '8px' }}>DRIVER KHARCHA (+₹)</th>
+                      <th style={{ padding: '8px' }}>TOTAL DEBIT (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -290,8 +384,15 @@ export default function FleetKhataView() {
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{t.slipNo || 'INDENT'}</div>
                         </td>
                         <td style={{ padding: '8px' }}>{t.fuelCode}</td>
-                        <td style={{ padding: '8px', fontFamily: 'var(--font-mono)' }}>{t.liters.toFixed(2)} L</td>
-                        <td style={{ padding: '8px', fontFamily: 'var(--font-mono)' }}>₹{t.rate.toFixed(2)}</td>
+                        <td style={{ padding: '8px', fontFamily: 'var(--font-mono)' }}>
+                          {t.liters.toFixed(2)} L @ ₹{t.rate.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', color: t.discountAmount > 0 ? '#34d399' : 'var(--text-dim)' }}>
+                          {t.discountAmount > 0 ? `-₹${t.discountAmount.toFixed(2)}` : '—'}
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', color: t.cashAdvance > 0 ? '#fbbf24' : 'var(--text-dim)', fontWeight: t.cashAdvance > 0 ? 800 : 400 }}>
+                          {t.cashAdvance > 0 ? `+₹${t.cashAdvance.toFixed(2)}` : '—'}
+                        </td>
                         <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#f87171' }}>
                           ₹{t.totalAmount.toFixed(2)}
                         </td>
@@ -305,6 +406,8 @@ export default function FleetKhataView() {
 
         </div>
       )}
+
+      </div>
 
       {/* Record Payment Modal */}
       {paymentModalOpen && (
@@ -370,6 +473,117 @@ export default function FleetKhataView() {
                   Confirm Receipt
                 </button>
                 <button type="button" onClick={() => setPaymentModalOpen(false)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Contract Terms Modal */}
+      {editTermsModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100
+        }}>
+          <div className="glass-card" style={{ width: '460px', padding: '26px', background: '#0b1329', border: '1px solid rgba(59,130,246,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                  ⚙️ Contractual Terms & Rebate
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#60a5fa' }}>{selectedAccount?.companyName}</div>
+              </div>
+              <button onClick={() => setEditTermsModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTerms} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  Sanctioned Credit Limit (₹)
+                </label>
+                <input
+                  type="number"
+                  value={editLimit}
+                  onChange={(e) => setEditLimit(e.target.value)}
+                  style={{ width: '100%', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  Transporter Discount / Rebate Per Liter (₹/L)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="10"
+                    placeholder="e.g. 0.75"
+                    value={editRebate}
+                    onChange={(e) => setEditRebate(e.target.value)}
+                    style={{ flex: 1, fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#34d399' }}
+                  />
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-dim)' }}>₹ / Liter</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  Automatic deduction on every liter dispensed in POS & Indents.
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  Max Driver Cash Advance (Kharcha Limit ₹)
+                </label>
+                <input
+                  type="number"
+                  step="100"
+                  min="0"
+                  max="10000"
+                  value={editMaxKharcha}
+                  onChange={(e) => setEditMaxKharcha(e.target.value)}
+                  style={{ width: '100%', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fbbf24' }}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  Safety cap on driver fuel petty cash advance per visit.
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={editHardLock}
+                    onChange={(e) => setEditHardLock(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#ef4444' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: editHardLock ? '#f87171' : '#e2e8f0' }}>
+                      Enforce Hard-Lock on Overlimit
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                      Strictly blocks fueling if balance + order exceeds sanctioned limit.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" className="btn-action-green" style={{ flex: 1, justifyContent: 'center' }}>
+                  Save Contract Terms
+                </button>
+                <button type="button" onClick={() => setEditTermsModalOpen(false)} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
                   Cancel
                 </button>
               </div>

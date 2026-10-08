@@ -13,7 +13,25 @@ export const STATION_INFO = {
   email: "contact@shreevinayakapetro.com",
   currency: "₹",
   densityStandardTemp: 15, // degrees Celsius standard reference
-  maxPermissibleLossPercent: 0.59 // Standard OMC allowable handling & evaporation loss threshold
+  maxPermissibleLossPercent: 0.59, // Standard OMC allowable handling & evaporation loss threshold
+  // OMC LFR (License Fee Recovery) Rates per KL
+  lfrRates: {
+    MS: 460.00, // ₹460 per KL
+    XP95: 480.00,
+    HSD: 390.00  // ₹390 per KL
+  },
+  // Government / OMC Benchmark Dealer Margins (₹/Litre or ₹/Kg)
+  dealerMargins: {
+    MS: 3.82,    // ₹3.82 per Liter
+    XP95: 4.25,  // ₹4.25 per Liter
+    HSD: 2.60,   // ₹2.60 per Liter
+    CNG: 3.20,   // ₹3.20 per Kg
+    EV: 2.50     // ₹2.50 per kWh
+  },
+  // Section 194Q Financial Year Cumulative Purchases from OMC (IOCL)
+  fyPurchasesOMC: 18450000.00, // ₹1.845 Crores YTD (exceeds ₹50L statutory threshold)
+  strictCreditLockDefault: true,
+  managerOverridePin: "9999"
 };
 
 export const INITIAL_PRICES = [
@@ -374,6 +392,10 @@ export const INITIAL_FLEET_ACCOUNTS = [
     billingCycle: "Monthly (1st-30th)",
     paymentTermsDays: 15,
     status: "ACTIVE",
+    discountPerLiter: 0.75, // ₹0.75/L contractual fleet rebate
+    hardLockEnabled: true, // Strict Credit Limit Hard-Lock
+    allowCashAdvance: true, // Driver Kharcha enabled
+    maxCashAdvance: 2000, // Up to ₹2,000 cash advance per trip
     vehicles: [
       { plate: "KA-01-AK-4455", type: "BharatBenz Heavy Tipper", driver: "Ramu Gowda", allowedFuel: ["HSD"], dailyQuotaLiters: 350 },
       { plate: "KA-04-MB-1290", type: "Tata Prima 4028.S", driver: "Shankar Lal", allowedFuel: ["HSD"], dailyQuotaLiters: 400 },
@@ -391,6 +413,10 @@ export const INITIAL_FLEET_ACCOUNTS = [
     billingCycle: "Fortnightly",
     paymentTermsDays: 10,
     status: "ACTIVE",
+    discountPerLiter: 1.00, // ₹1.00/L contractual rebate
+    hardLockEnabled: true,
+    allowCashAdvance: true,
+    maxCashAdvance: 3000,
     vehicles: [
       { plate: "KA-02-AA-9988", type: "Ashok Leyland 2820", driver: "Basavaraj", allowedFuel: ["HSD"], dailyQuotaLiters: 300 },
       { plate: "KA-53-MN-3344", type: "Tata Signa 4825", driver: "Syed Imran", allowedFuel: ["HSD"], dailyQuotaLiters: 450 }
@@ -407,6 +433,10 @@ export const INITIAL_FLEET_ACCOUNTS = [
     billingCycle: "Weekly",
     paymentTermsDays: 7,
     status: "ACTIVE",
+    discountPerLiter: 0.50, // ₹0.50/L rebate
+    hardLockEnabled: true,
+    allowCashAdvance: false, // No cash advance for taxi cabs
+    maxCashAdvance: 0,
     vehicles: [
       { plate: "KA-05-AG-6712", type: "Toyota Innova Crysta", driver: "Prakash V", allowedFuel: ["HSD"], dailyQuotaLiters: 65 },
       { plate: "KA-01-MJ-8801", type: "Maruti Dzire CNG", driver: "Harish S", allowedFuel: ["CNG", "MS"], dailyQuotaLiters: 30 },
@@ -420,10 +450,14 @@ export const INITIAL_FLEET_ACCOUNTS = [
     phone: "+91 94480 33221",
     gstin: "29AACCA9081B1ZU",
     creditLimit: 800000,
-    currentBalance: 720500,
+    currentBalance: 792500, // Near limit to test hard-lock!
     billingCycle: "Monthly",
     paymentTermsDays: 20,
     status: "ALERT",
+    discountPerLiter: 1.25, // ₹1.25/L contractual rebate
+    hardLockEnabled: true, // Hard-Lock Active!
+    allowCashAdvance: true,
+    maxCashAdvance: 2500,
     vehicles: [
       { plate: "KA-04-D-9900", type: "Volvo FMX 460 Dumper", driver: "Mallikarjun", allowedFuel: ["HSD"], dailyQuotaLiters: 500 },
       { plate: "KA-04-D-9901", type: "JCB Excavator 205", driver: "Subhash", allowedFuel: ["HSD"], dailyQuotaLiters: 300 }
@@ -677,59 +711,62 @@ export const INITIAL_DIGITAL_INDENTS = [
     id: "IND-801",
     indentNumber: "IND-2026-801",
     fleetId: "fl-01",
-    companyName: "VRL Logistics Ltd",
-    vehiclePlate: "KA-01-AB-1234",
-    driverName: "Rajesh Kumar",
+    companyName: "Shree Balaji Logistics & Movers",
+    vehiclePlate: "KA-01-AK-4455",
+    driverName: "Ramu Gowda",
     driverPhone: "+91 98450 11223",
     fuelCode: "HSD",
     fuelName: "High Speed Diesel",
     maxLiters: 150,
     maxAmount: 13462.50,
+    cashAdvanceKharcha: 1000.00, // Pre-authorized Driver Cash Advance / Kharcha
     createdAt: "2026-10-08 08:30",
     expiresAt: "2026-10-09 08:30",
     status: "ACTIVE",
     securityPin: "4829",
-    qrPayload: "INDENT|fl-01|KA-01-AB-1234|HSD|150|4829",
-    notes: "Highway long-haul Bangalore-Pune route"
+    qrPayload: "INDENT|fl-01|KA-01-AK-4455|HSD|150|1000|4829",
+    notes: "Highway long-haul Bangalore-Pune route (₹1,000 toll kharcha authorized)"
   },
   {
     id: "IND-802",
     indentNumber: "IND-2026-802",
     fleetId: "fl-02",
-    companyName: "SafeXpress Supply Chain",
-    vehiclePlate: "MH-12-CD-5678",
-    driverName: "Sunil Patil",
+    companyName: "Shiva Transport Corporation",
+    vehiclePlate: "KA-02-AA-9988",
+    driverName: "Basavaraj",
     driverPhone: "+91 97654 32109",
     fuelCode: "HSD",
     fuelName: "High Speed Diesel",
     maxLiters: 100,
     maxAmount: 8975.00,
+    cashAdvanceKharcha: 500.00,
     createdAt: "2026-10-08 09:15",
     expiresAt: "2026-10-09 09:15",
     status: "ACTIVE",
     securityPin: "7391",
-    qrPayload: "INDENT|fl-02|MH-12-CD-5678|HSD|100|7391",
-    notes: "Interstate delivery transit"
+    qrPayload: "INDENT|fl-02|KA-02-AA-9988|HSD|100|500|7391",
+    notes: "Interstate delivery transit (₹500 driver food kharcha)"
   },
   {
     id: "IND-803",
     indentNumber: "IND-2026-803",
-    fleetId: "fl-03",
+    fleetId: "fl-04",
     companyName: "Apex Infra Roadways",
     vehiclePlate: "KA-04-D-9900",
-    driverName: "Mahesh Gowda",
+    driverName: "Mallikarjun",
     driverPhone: "+91 94480 44556",
     fuelCode: "HSD",
     fuelName: "High Speed Diesel",
     maxLiters: 200,
     maxAmount: 17950.00,
+    cashAdvanceKharcha: 1500.00,
     createdAt: "2026-10-07 14:00",
     expiresAt: "2026-10-08 14:00",
     status: "REDEEMED",
     securityPin: "1940",
-    qrPayload: "INDENT|fl-03|KA-04-D-9900|HSD|200|1940",
+    qrPayload: "INDENT|fl-04|KA-04-D-9900|HSD|200|1500|1940",
     redeemedReceipt: "SV-REC-892102",
-    notes: "Quarry dumper fuel allocation"
+    notes: "Quarry dumper fuel allocation + ₹1,500 advance"
   }
 ];
 
@@ -758,7 +795,15 @@ export const TRANSLATIONS = {
     cashInHand: "Cash In Hand",
     totalizerReading: "Meter Reading",
     shortageAlert: "Shortage Alert",
-    offlineMode: "Offline Forecourt Ready"
+    offlineMode: "Offline Forecourt Ready",
+    driverKharcha: "Driver Cash Advance (Kharcha)",
+    creditLimitLock: "Credit Limit Hard-Lock",
+    transporterRebate: "Transporter Discount (₹/L)",
+    dayBook2Page: "2-Page Petroleum Day Book",
+    lfrTdsReport: "LFR & TDS 10%/2% Report",
+    dealerMarginReport: "Per-Liter Margin & Profit",
+    section194QReport: "Section 194Q TDS (0.1%)",
+    tallyXmlExport: "Tally Prime XML & CA Export"
   },
   hi: {
     brandName: "श्री विनायक पेट्रोसॉफ्ट",
@@ -784,7 +829,15 @@ export const TRANSLATIONS = {
     cashInHand: "नकद संकलन",
     totalizerReading: "मीटर रीडिंग",
     shortageAlert: "कमी / शॉर्टेज चेतावनी",
-    offlineMode: "ऑफलाइन मोड सक्रिय"
+    offlineMode: "ऑफलाइन मोड सक्रिय",
+    driverKharcha: "ड्राइवर नकद खर्चा (कैश एडवांस)",
+    creditLimitLock: "क्रेडिट लिमिट हार्ड-लॉक",
+    transporterRebate: "ट्रांसपोर्टर डिस्काउंट (₹/ली)",
+    dayBook2Page: "2-पेज पेट्रोलियम डे बुक",
+    lfrTdsReport: "LFR व TDS 10%/2% रिपोर्ट",
+    dealerMarginReport: "डीलर मार्जिन व दैनिक लाभ",
+    section194QReport: "धारा 194Q टीडीएस (0.1%)",
+    tallyXmlExport: "टैली प्राइम XML व CA डेटा"
   }
 };
 
