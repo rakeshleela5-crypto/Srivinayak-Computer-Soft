@@ -13,8 +13,13 @@ import {
   AlertCircle,
   Receipt,
   Printer,
-  Package
+  Package,
+  Scan,
+  Camera,
+  X,
+  ShieldCheck
 } from 'lucide-react';
+import { audioFX } from '../utils/audioFX';
 
 export default function POSView() {
   const { 
@@ -27,7 +32,9 @@ export default function POSView() {
     activeRole,
     loyaltyCustomers,
     earnLoyaltyPoints,
-    redeemLoyaltyPoints
+    redeemLoyaltyPoints,
+    digitalIndents,
+    redeemDigitalIndent
   } = useApp();
 
   // Active Dispensing Form State
@@ -43,6 +50,24 @@ export default function POSView() {
   const [selectedFleetId, setSelectedFleetId] = useState('');
   const [driverName, setDriverName] = useState('');
   const [slipNo, setSlipNo] = useState('');
+  const [indentScannerOpen, setIndentScannerOpen] = useState(false);
+
+  const handlePickIndent = (indent) => {
+    audioFX.playQrBeep();
+    setPaymentMode('CREDIT');
+    setSelectedFleetId(indent.fleetId);
+    setVehicleNo(indent.vehiclePlate);
+    setDriverName(indent.driverName);
+    setSlipNo(indent.indentNumber);
+    
+    const targetNoz = nozzles.find(n => n.fuelCode === indent.fuelCode);
+    if (targetNoz) {
+      setSelectedNozzleId(targetNoz.id);
+    }
+    setBillingMode('VOLUME');
+    setLitersInput(indent.maxLiters.toString());
+    setIndentScannerOpen(false);
+  };
 
   // Bundled Lubricants
   const [selectedLubes, setSelectedLubes] = useState([]);
@@ -139,7 +164,15 @@ export default function POSView() {
       attendant: currentShift.supervisor
     };
 
-    recordTransaction(salePayload);
+    const newTxn = recordTransaction(salePayload);
+    audioFX.playCashRegister();
+
+    if (slipNo) {
+      const matched = (digitalIndents || []).find(i => i.indentNumber === slipNo);
+      if (matched) {
+        redeemDigitalIndent(matched.id, newTxn?.receiptNo || 'POS-REC');
+      }
+    }
 
     // Credit loyalty points and redeem if applicable (PDF Page 1 & 3)
     if (redeemedPoints > 0 && customerPhone) {
@@ -453,9 +486,19 @@ export default function POSView() {
           {/* Fleet / Khata Credit Account Selector if CREDIT chosen */}
           {paymentMode === 'CREDIT' && (
             <div style={{ marginTop: '14px', padding: '14px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <Truck size={16} color="#f87171" />
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f87171' }}>Select Fleet Account (Khata Verification)</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Truck size={16} color="#f87171" />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f87171' }}>Select Fleet Account (Khata Verification)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIndentScannerOpen(true)}
+                  className="btn-secondary"
+                  style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                >
+                  <Scan size={13} /> Scan Driver QR Slip
+                </button>
               </div>
               <select
                 value={selectedFleetId}
@@ -634,6 +677,128 @@ export default function POSView() {
         </button>
 
       </div>
+
+      {/* Forecourt Terminal Fleet Indent QR Scanner Modal */}
+      {indentScannerOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '16px'
+        }}>
+          <div className="glass-card" style={{ width: '480px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', padding: '24px', background: '#0f172a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Scan size={22} color="#38bdf8" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  POS Driver QR Slip Scanner
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIndentScannerOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Optical Scanner Laser */}
+            <div style={{ 
+              position: 'relative', 
+              height: '130px', 
+              background: '#020617', 
+              borderRadius: '12px', 
+              border: '2px dashed rgba(56, 189, 248, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                right: 0,
+                height: '2px',
+                background: '#38bdf8',
+                boxShadow: '0 0 12px #38bdf8'
+              }} />
+              <Camera size={30} color="#38bdf8" style={{ opacity: 0.6, marginBottom: '4px' }} />
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700 }}>
+                Scan Driver Mobile Voucher or Paper Slip
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                Or select verified active slip below
+              </div>
+            </div>
+
+            {/* Queue List */}
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '8px' }}>
+              ACTIVE DRIVER INDENT VOUCHERS ({digitalIndents.filter(i => i.status === 'ACTIVE').length})
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {digitalIndents.filter(i => i.status === 'ACTIVE').length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
+                  No pending fleet indents available.
+                </div>
+              ) : (
+                digitalIndents.filter(i => i.status === 'ACTIVE').map(ind => (
+                  <div
+                    key={ind.id}
+                    onClick={() => handlePickIndent(ind)}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(2, 6, 23, 0.6)',
+                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#38bdf8'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#fbbf24', fontSize: '0.95rem' }}>
+                        {ind.vehiclePlate}
+                      </strong>
+                      <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>
+                        {ind.fuelCode} • {ind.maxLiters}L
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 700, marginTop: '4px' }}>
+                      {ind.companyName}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      <span>Driver: {ind.driverName}</span>
+                      <span style={{ color: '#34d399', fontWeight: 700 }}>OTP: {ind.securityPin}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => setIndentScannerOpen(false)}
+              className="btn-secondary"
+              style={{ width: '100%', marginTop: '16px', justifyContent: 'center' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

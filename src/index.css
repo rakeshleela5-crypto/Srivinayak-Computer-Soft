@@ -336,3 +336,56 @@ input:focus, select:focus, textarea:focus {
     width: 100%;
   }
 }
+
+/* Forecourt Digital Twin & Fluid Sloshing */
+@keyframes tankWave {
+  0% { transform: translateX(0) scaleY(1); }
+  50% { transform: translateX(-25%) scaleY(1.04); }
+  100% { transform: translateX(0) scaleY(1); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.4)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 14px rgba(16, 185, 129, 0.8)); }
+}
+
+.twin-canopy-card {
+  perspective: 1000px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tank-capsule {
+  position: relative;
+  height: 140px;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9);
+}
+
+.tank-fluid-layer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.tank-fluid-wave {
+  position: absolute;
+  top: -10px;
+  left: 0;
+  width: 200%;
+  height: 20px;
+  background: inherit;
+  opacity: 0.6;
+  border-radius: 40%;
+  animation: tankWave 4s infinite ease-in-out;
+}
+

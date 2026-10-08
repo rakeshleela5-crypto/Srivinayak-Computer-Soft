@@ -12,7 +12,8 @@ import {
   Printer, 
   Coins,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  QrCode
 } from 'lucide-react';
 
 export default function FleetKhataView() {
@@ -20,7 +21,8 @@ export default function FleetKhataView() {
     fleetAccounts, 
     recordFleetPayment, 
     transactions,
-    activeRole
+    activeRole,
+    digitalIndents
   } = useApp();
 
   const [selectedAccount, setSelectedAccount] = useState(fleetAccounts[0]);
@@ -218,6 +220,36 @@ export default function FleetKhataView() {
               ))}
             </div>
           </div>
+
+          {/* Active Digital Indents for this Account */}
+          {(() => {
+            const accountIndents = (digitalIndents || []).filter(i => i.fleetId === selectedAccount.id);
+            if (accountIndents.length === 0) return null;
+            return (
+              <div className="glass-card" style={{ padding: '20px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#f8fafc', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <QrCode size={18} color="#38bdf8" /> Issued Driver QR Indents ({accountIndents.length})
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+                  {accountIndents.map(ind => (
+                    <div key={ind.id} style={{ padding: '12px', borderRadius: '10px', background: 'rgba(2, 6, 23, 0.5)', border: ind.status === 'ACTIVE' ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fbbf24' }}>{ind.vehiclePlate}</span>
+                        <span className={ind.status === 'ACTIVE' ? 'badge badge-active' : 'badge'} style={{ fontSize: '0.65rem' }}>{ind.status}</span>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Driver: {ind.driverName} • Product: <strong>{ind.fuelCode}</strong> ({ind.maxLiters}L)
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+                        <span>Slip: {ind.indentNumber}</span>
+                        <span style={{ color: '#34d399', fontWeight: 700 }}>OTP: {ind.securityPin}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Account Ledger Transactions */}
           <div className="glass-card" style={{ padding: '20px' }}>

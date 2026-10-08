@@ -672,6 +672,67 @@ export const INITIAL_AUTOMATED_ALERTS = [
   }
 ];
 
+export const INITIAL_DIGITAL_INDENTS = [
+  {
+    id: "IND-801",
+    indentNumber: "IND-2026-801",
+    fleetId: "fl-01",
+    companyName: "VRL Logistics Ltd",
+    vehiclePlate: "KA-01-AB-1234",
+    driverName: "Rajesh Kumar",
+    driverPhone: "+91 98450 11223",
+    fuelCode: "HSD",
+    fuelName: "High Speed Diesel",
+    maxLiters: 150,
+    maxAmount: 13462.50,
+    createdAt: "2026-10-08 08:30",
+    expiresAt: "2026-10-09 08:30",
+    status: "ACTIVE",
+    securityPin: "4829",
+    qrPayload: "INDENT|fl-01|KA-01-AB-1234|HSD|150|4829",
+    notes: "Highway long-haul Bangalore-Pune route"
+  },
+  {
+    id: "IND-802",
+    indentNumber: "IND-2026-802",
+    fleetId: "fl-02",
+    companyName: "SafeXpress Supply Chain",
+    vehiclePlate: "MH-12-CD-5678",
+    driverName: "Sunil Patil",
+    driverPhone: "+91 97654 32109",
+    fuelCode: "HSD",
+    fuelName: "High Speed Diesel",
+    maxLiters: 100,
+    maxAmount: 8975.00,
+    createdAt: "2026-10-08 09:15",
+    expiresAt: "2026-10-09 09:15",
+    status: "ACTIVE",
+    securityPin: "7391",
+    qrPayload: "INDENT|fl-02|MH-12-CD-5678|HSD|100|7391",
+    notes: "Interstate delivery transit"
+  },
+  {
+    id: "IND-803",
+    indentNumber: "IND-2026-803",
+    fleetId: "fl-03",
+    companyName: "Apex Infra Roadways",
+    vehiclePlate: "KA-04-D-9900",
+    driverName: "Mahesh Gowda",
+    driverPhone: "+91 94480 44556",
+    fuelCode: "HSD",
+    fuelName: "High Speed Diesel",
+    maxLiters: 200,
+    maxAmount: 17950.00,
+    createdAt: "2026-10-07 14:00",
+    expiresAt: "2026-10-08 14:00",
+    status: "REDEEMED",
+    securityPin: "1940",
+    qrPayload: "INDENT|fl-03|KA-04-D-9900|HSD|200|1940",
+    redeemedReceipt: "SV-REC-892102",
+    notes: "Quarry dumper fuel allocation"
+  }
+];
+
 export const TRANSLATIONS = {
   en: {
     brandName: "SHREE VINAYAKA PETROSOFT",

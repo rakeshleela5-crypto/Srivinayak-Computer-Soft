@@ -13,8 +13,14 @@ import {
   Receipt, 
   Coins, 
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Camera,
+  Scan,
+  ShieldCheck,
+  X
 } from 'lucide-react';
+import DenominationCounter from '../components/DenominationCounter';
+import { audioFX } from '../utils/audioFX';
 
 export default function SalesmanAppView() {
   const { 
@@ -24,7 +30,10 @@ export default function SalesmanAppView() {
     setActiveSalesmanId,
     recordTransaction, 
     fleetAccounts,
-    currentShift
+    currentShift,
+    digitalIndents,
+    redeemDigitalIndent,
+    shiftDenominations
   } = useApp();
 
   const activeStaff = staff.find(s => s.id === activeSalesmanId) || staff[0];
@@ -39,6 +48,9 @@ export default function SalesmanAppView() {
   const [vehicleNo, setVehicleNo] = useState('');
   const [selectedFleetId, setSelectedFleetId] = useState('');
   const [slipNo, setSlipNo] = useState('');
+  const [qrIndentModalOpen, setQrIndentModalOpen] = useState(false);
+  const [showCashBagDrawer, setShowCashBagDrawer] = useState(false);
+  const [scannedIndentAlert, setScannedIndentAlert] = useState(null);
 
   const selectedNozzle = nozzles.find(n => n.id === selectedNozzleId) || nozzles[0];
   const rate = selectedNozzle?.rate || 100;
@@ -49,11 +61,30 @@ export default function SalesmanAppView() {
   const myDispensedLiters = activeNozzleList.reduce((acc, n) => acc + (n.currentMeter - n.openingMeter), 0);
   const myTotalRevenue = myDispensedLiters * rate;
 
+  const handleSelectIndent = (indent) => {
+    audioFX.playQrBeep();
+    setPaymentMode('CREDIT');
+    setSelectedFleetId(indent.fleetId);
+    setVehicleNo(indent.vehiclePlate);
+    setSlipNo(indent.indentNumber);
+    
+    const matchedNoz = nozzles.find(n => n.fuelCode === indent.fuelCode) || selectedNozzle;
+    if (matchedNoz) {
+      setSelectedNozzleId(matchedNoz.id);
+    }
+
+    const effectiveRate = matchedNoz?.rate || rate;
+    const computedAmt = Math.round(indent.maxLiters * effectiveRate);
+    setQuickAmount(computedAmt.toString());
+    setScannedIndentAlert(`Verified Driver Indent ${indent.indentNumber} (${indent.companyName}) - Pre-approved ${indent.maxLiters}L`);
+    setQrIndentModalOpen(false);
+  };
+
   const handleQuickSaleSubmit = (e) => {
     e.preventDefault();
     if (numAmount <= 0) return;
 
-    recordTransaction({
+    const newTxn = recordTransaction({
       nozzleId: selectedNozzle.id,
       nozzleNumber: selectedNozzle.nozzleNumber,
       fuelCode: selectedNozzle.fuelCode,
@@ -70,8 +101,17 @@ export default function SalesmanAppView() {
       slipNo: slipNo || null
     });
 
+    if (slipNo) {
+      const matched = digitalIndents.find(i => i.indentNumber === slipNo);
+      if (matched) {
+        redeemDigitalIndent(matched.id, newTxn.receiptNo);
+      }
+    }
+    audioFX.playCashRegister();
+
     setVehicleNo('');
     setSlipNo('');
+    setScannedIndentAlert(null);
   };
 
   return (
@@ -137,6 +177,74 @@ export default function SalesmanAppView() {
           </div>
         </div>
       </div>
+
+      {/* Quick Tool Actions: Scan Indent & Cash Bag Counter */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <button
+          type="button"
+          onClick={() => setQrIndentModalOpen(true)}
+          className="btn-secondary"
+          style={{ padding: '12px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)', justifyContent: 'center', fontSize: '0.85rem' }}
+        >
+          <Scan size={18} /> Scan Driver Indent
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowCashBagDrawer(!showCashBagDrawer)}
+          className="btn-secondary"
+          style={{ padding: '12px', color: '#fbbf24', borderColor: 'rgba(245, 158, 11, 0.4)', justifyContent: 'center', fontSize: '0.85rem' }}
+        >
+          <Banknote size={18} /> {showCashBagDrawer ? 'Hide Cash Bag' : 'Count Cash Bag'}
+        </button>
+      </div>
+
+      {/* Scanned Driver Indent Banner */}
+      {scannedIndentAlert && (
+        <div style={{ 
+          padding: '10px 14px', 
+          borderRadius: '10px', 
+          background: 'rgba(16, 185, 129, 0.15)', 
+          border: '1px solid rgba(16, 185, 129, 0.4)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          fontSize: '0.82rem',
+          color: '#34d399'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldCheck size={18} color="#34d399" />
+            <span>{scannedIndentAlert}</span>
+          </div>
+          <button 
+            type="button"
+            onClick={() => {
+              setScannedIndentAlert(null);
+              setSlipNo('');
+              setVehicleNo('');
+            }}
+            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Cash Bag Denomination Counter Drawer */}
+      {showCashBagDrawer && (
+        <div className="glass-card" style={{ padding: '18px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+          <div style={{ marginBottom: '12px' }}>
+            <span className="badge badge-active">SALESMAN BAG RECONCILIATION</span>
+            <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', marginTop: '4px' }}>
+              Handover Note Denomination Counter
+            </h4>
+          </div>
+          <DenominationCounter
+            expectedAmount={myTotalRevenue}
+            initialDenominations={shiftDenominations}
+          />
+        </div>
+      )}
 
       {/* Ultra-Fast Mobile Dispenser Terminal Form */}
       <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -317,6 +425,128 @@ export default function SalesmanAppView() {
         </button>
 
       </div>
+
+      {/* Driver QR Indent Scanner Modal */}
+      {qrIndentModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '16px'
+        }}>
+          <div className="glass-card" style={{ width: '480px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', padding: '22px', background: '#0f172a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Scan size={22} color="#38bdf8" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  Scan & Verify Fleet Indent
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setQrIndentModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Simulated Optical Laser Viewfinder */}
+            <div style={{ 
+              position: 'relative', 
+              height: '140px', 
+              background: '#020617', 
+              borderRadius: '12px', 
+              border: '2px dashed rgba(56, 189, 248, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                right: 0,
+                height: '2px',
+                background: '#38bdf8',
+                boxShadow: '0 0 12px #38bdf8'
+              }} />
+              <Camera size={32} color="#38bdf8" style={{ opacity: 0.6, marginBottom: '6px' }} />
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700 }}>
+                Point Forecourt Scanner at Driver Slip QR
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                Or select an authorized queue slip below
+              </div>
+            </div>
+
+            {/* Active Driver Indents Queue */}
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '8px' }}>
+              PENDING AUTHORIZED FLEET INDENTS ({digitalIndents.filter(i => i.status === 'ACTIVE').length})
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {digitalIndents.filter(i => i.status === 'ACTIVE').length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
+                  No pending fleet indents found in active queue.
+                </div>
+              ) : (
+                digitalIndents.filter(i => i.status === 'ACTIVE').map(indent => (
+                  <div 
+                    key={indent.id}
+                    onClick={() => handleSelectIndent(indent)}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(2, 6, 23, 0.6)',
+                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#38bdf8'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#fbbf24', fontSize: '0.95rem' }}>
+                        {indent.vehiclePlate}
+                      </strong>
+                      <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>
+                        {indent.fuelCode} • {indent.maxLiters}L MAX
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 700, marginTop: '4px' }}>
+                      {indent.companyName}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      <span>Driver: {indent.driverName}</span>
+                      <span style={{ color: '#34d399', fontWeight: 700 }}>PIN: {indent.securityPin}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => setQrIndentModalOpen(false)}
+              className="btn-secondary"
+              style={{ width: '100%', marginTop: '16px', justifyContent: 'center' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

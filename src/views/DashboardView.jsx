@@ -17,8 +17,13 @@ import {
   Calendar,
   Sparkles,
   ExternalLink,
-  Edit3
+  Edit3,
+  Radio,
+  Volume2,
+  VolumeX,
+  Eye
 } from 'lucide-react';
+import { audioFX } from '../utils/audioFX';
 
 export default function DashboardView() {
   const { 
@@ -37,6 +42,8 @@ export default function DashboardView() {
   const [priceModalOpen, setPriceModalOpen] = useState(false);
   const [selectedFuelForPrice, setSelectedFuelForPrice] = useState(fuelPrices[0]);
   const [newRateInput, setNewRateInput] = useState(fuelPrices[0]?.price || 100);
+  const [selectedTwinTank, setSelectedTwinTank] = useState(tanks[0] || null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Compute live aggregates
   const totalVolumeDispensed = nozzles.reduce((acc, noz) => acc + (noz.currentMeter - noz.openingMeter), 0);
@@ -178,6 +185,222 @@ export default function DashboardView() {
             </button>
           </div>
         </div>
+
+      </div>
+
+      {/* 3D FORECOURT DIGITAL TWIN & UNDERGROUND TANK FLUID VISUALIZER */}
+      <div className="twin-canopy-card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '20px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="badge" style={{ background: 'linear-gradient(90deg, #f59e0b, #ec4899)', color: '#000', fontWeight: 900, fontSize: '0.68rem', letterSpacing: '0.05em' }}>
+                DIGITAL TWIN V2
+              </span>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Eye size={20} color="#38bdf8" /> 3D Sub-Surface Forecourt & Liquid Hydrodynamics
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Real-time digital twin visualization of physical canopy dispensers and underground wet-stock fluid levels with ATG telemetry.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                audioFX.enabled = next;
+                if (next) audioFX.playCashRegister();
+              }}
+              className="btn-secondary"
+              style={{ fontSize: '0.75rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Forecourt Sound Effects"
+            >
+              {soundEnabled ? <Volume2 size={14} color="#34d399" /> : <VolumeX size={14} color="#94a3b8" />}
+              <span>{soundEnabled ? 'FX SOUND ON' : 'MUTED'}</span>
+            </button>
+            <span className="badge badge-active" style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Radio size={12} className="animate-pulse" /> TELEMETRY STREAMING
+            </span>
+          </div>
+        </div>
+
+        {/* Level A: Upper Forecourt Islands & Nozzle Bays */}
+        <div style={{ marginBottom: '22px' }}>
+          <div style={{ fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: '10px' }}>
+            Canopy Level: 4 Dispensing Islands (Layer 1 Automations)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+            {dispensers.map((disp, idx) => {
+              const islandNozzles = nozzles.filter(n => n.dispenserId === disp.id);
+              return (
+                <div 
+                  key={disp.id} 
+                  style={{ 
+                    background: 'rgba(2, 6, 23, 0.7)', 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    borderRadius: '12px', 
+                    padding: '14px',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f59e0b' }}>ISLAND 0{idx + 1}</span>
+                    <span style={{ fontSize: '0.68rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                      DUAL NOZZLE
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#ffffff' }}>{disp.name}</div>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                    {islandNozzles.map(noz => (
+                      <button
+                        key={noz.id}
+                        onClick={() => {
+                          if (soundEnabled) audioFX.playDispensePulse();
+                          setActiveTab('pos');
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          borderRadius: '8px',
+                          background: `${noz.color}15`,
+                          border: `1px solid ${noz.color}40`,
+                          color: '#fff',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <span style={{ color: noz.color, fontWeight: 900 }}>{noz.nozzleNumber}</span>
+                        <span>{noz.fuelCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Level B: Sub-Surface Underground Storage Tanks (UST) Liquid Hydrodynamics */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }}>
+              Sub-Surface Level: Transparent Underground Tanks & Fluid Hydrodynamics
+            </div>
+            <span style={{ fontSize: '0.7rem', color: '#38bdf8' }}>Click any tank for ultrasonic sensor inspection</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
+            {tanks.map((tank) => {
+              const fillPct = Math.round((tank.currentStock / tank.capacity) * 100);
+              const isSelected = selectedTwinTank?.id === tank.id;
+              
+              // Fuel color themes
+              const fluidGradients = {
+                MS: 'linear-gradient(180deg, rgba(249, 115, 22, 0.9) 0%, rgba(194, 65, 12, 0.95) 100%)',
+                XP95: 'linear-gradient(180deg, rgba(236, 72, 153, 0.9) 0%, rgba(190, 24, 93, 0.95) 100%)',
+                HSD: 'linear-gradient(180deg, rgba(59, 130, 246, 0.9) 0%, rgba(29, 78, 216, 0.95) 100%)',
+                CNG: 'linear-gradient(180deg, rgba(16, 185, 129, 0.9) 0%, rgba(4, 120, 87, 0.95) 100%)'
+              };
+              const fluidBg = fluidGradients[tank.fuelCode] || fluidGradients.MS;
+
+              return (
+                <div
+                  key={tank.id}
+                  onClick={() => {
+                    setSelectedTwinTank(tank);
+                    if (soundEnabled) audioFX.playTelemetryPing();
+                  }}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '14px',
+                    background: isSelected ? 'rgba(30, 41, 59, 0.9)' : 'rgba(15, 23, 42, 0.6)',
+                    border: isSelected ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isSelected ? '0 0 20px rgba(56, 189, 248, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 900, color: '#fff' }}>{tank.tankNumber}</span>
+                      <span style={{ fontSize: '0.72rem', color: tank.color, fontWeight: 800, marginLeft: '6px' }}>{tank.fuelCode}</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>{fillPct}%</span>
+                  </div>
+
+                  {/* Glass Cylinder Capsule with Animated Sloshing Fuel */}
+                  <div className="tank-capsule">
+                    <div 
+                      className="tank-fluid-layer" 
+                      style={{ 
+                        height: `${fillPct}%`,
+                        background: fluidBg
+                      }}
+                    >
+                      <div className="tank-fluid-wave" style={{ background: fluidBg }} />
+                    </div>
+
+                    {/* Sensor Overlay Readings */}
+                    <div style={{ position: 'absolute', inset: '8px', zIndex: 5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.9)' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#f1f5f9', fontWeight: 700 }}>
+                        DIP: {tank.physicalDipMm} mm
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '1rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                          {tank.currentStock.toLocaleString()} L
+                        </div>
+                        <div style={{ fontSize: '0.62rem', color: '#cbd5e1' }}>
+                          Cap: {tank.capacity.toLocaleString()} L
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Water Sensor & Status Indicator */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    <span>Water: <strong style={{ color: tank.waterBottomMm > 8 ? '#f87171' : '#34d399' }}>{tank.waterBottomMm} mm</strong></span>
+                    <span>15°C Dens: <strong style={{ color: '#fff' }}>{tank.density15C}</strong></span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Tank Ultrasonics Inspection Drawer */}
+        {selectedTwinTank && (
+          <div style={{ marginTop: '16px', padding: '14px 18px', borderRadius: '12px', background: 'rgba(2, 6, 23, 0.85)', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${selectedTwinTank.color}25`, border: `1px solid ${selectedTwinTank.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: selectedTwinTank.color, fontWeight: 900, fontSize: '0.9rem' }}>
+                {selectedTwinTank.fuelCode}
+              </div>
+              <div>
+                <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#ffffff' }}>
+                  {selectedTwinTank.tankNumber} • {selectedTwinTank.fuelName}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                  ATG Probe: <strong>{selectedTwinTank.atgLevel.toLocaleString()} L</strong> • Brass Dip: <strong>{selectedTwinTank.currentStock.toLocaleString()} L</strong> • Variance: <strong style={{ color: '#34d399' }}>{selectedTwinTank.atgLevel - selectedTwinTank.currentStock} L (OK)</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => setActiveTab('tanks')}
+                className="btn-primary" 
+                style={{ padding: '6px 14px', fontSize: '0.78rem' }}
+              >
+                Open Full Dip Diagnostics →
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
 

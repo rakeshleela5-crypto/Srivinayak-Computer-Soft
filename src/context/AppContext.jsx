@@ -17,6 +17,7 @@ import {
   INITIAL_FORECOURT_EXPENSES,
   INITIAL_LOYALTY_CUSTOMERS,
   INITIAL_AUTOMATED_ALERTS,
+  INITIAL_DIGITAL_INDENTS,
   TRANSLATIONS
 } from '../constants/initialData';
 
@@ -100,6 +101,26 @@ export const AppProvider = ({ children }) => {
   const [automatedAlerts, setAutomatedAlerts] = useState(() => {
     const saved = localStorage.getItem('svp_alerts');
     return saved ? JSON.parse(saved) : INITIAL_AUTOMATED_ALERTS;
+  });
+
+  // Digital Fleet QR Indent Slips Engine
+  const [digitalIndents, setDigitalIndents] = useState(() => {
+    const saved = localStorage.getItem('svp_indents');
+    return saved ? JSON.parse(saved) : INITIAL_DIGITAL_INDENTS;
+  });
+
+  // Shift Currency Denomination Matrix Counter
+  const [shiftDenominations, setShiftDenominations] = useState(() => {
+    const saved = localStorage.getItem('svp_denominations');
+    return saved ? JSON.parse(saved) : {
+      500: 42,
+      200: 15,
+      100: 25,
+      50: 10,
+      20: 15,
+      10: 20,
+      coins: 400
+    };
   });
 
   // Active Fleet Selected in Fleet Portal View
@@ -725,6 +746,49 @@ export const AppProvider = ({ children }) => {
     setOfflineQueue([]);
   };
 
+  // Digital Indent Creation
+  const createDigitalIndent = (indentData) => {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const newId = `IND-${Math.floor(1000 + Math.random() * 9000)}`;
+    const pin = Math.floor(1000 + Math.random() * 9000).toString();
+    const newIndent = {
+      id: newId,
+      indentNumber: `IND-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+      fleetId: indentData.fleetId,
+      companyName: indentData.companyName,
+      vehiclePlate: (indentData.vehiclePlate || 'KA-01-XX-0000').toUpperCase(),
+      driverName: indentData.driverName || 'Authorized Driver',
+      driverPhone: indentData.driverPhone || '',
+      fuelCode: indentData.fuelCode || 'HSD',
+      fuelName: indentData.fuelName || 'High Speed Diesel',
+      maxLiters: Number(indentData.maxLiters) || 100,
+      maxAmount: Number(indentData.maxAmount) || (Number(indentData.maxLiters) * 89.75),
+      createdAt: `${dateStr} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 16),
+      status: 'ACTIVE',
+      securityPin: pin,
+      qrPayload: `INDENT|${indentData.fleetId}|${(indentData.vehiclePlate || '').toUpperCase()}|${indentData.fuelCode || 'HSD'}|${indentData.maxLiters}|${pin}`,
+      notes: indentData.notes || 'Digital Fleet Indent Slip'
+    };
+
+    setDigitalIndents(prev => [newIndent, ...prev]);
+    return newIndent;
+  };
+
+  // Digital Indent Redemption
+  const redeemDigitalIndent = (indentId, receiptNo) => {
+    setDigitalIndents(prev =>
+      prev.map(ind => ind.id === indentId ? { ...ind, status: 'REDEEMED', redeemedReceipt: receiptNo } : ind)
+    );
+  };
+
+  // Save Shift Denominations Breakdown
+  const saveShiftDenominations = (denomBreakdown) => {
+    setShiftDenominations(denomBreakdown);
+    localStorage.setItem('svp_denominations', JSON.stringify(denomBreakdown));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -785,7 +849,12 @@ export const AppProvider = ({ children }) => {
         redeemLoyaltyPoints,
         automatedAlerts,
         dispatchAlert,
-        get5StepMismatchAudit
+        get5StepMismatchAudit,
+        digitalIndents,
+        createDigitalIndent,
+        redeemDigitalIndent,
+        shiftDenominations,
+        saveShiftDenominations
       }}
     >
       {children}
