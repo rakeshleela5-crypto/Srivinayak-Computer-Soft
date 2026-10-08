@@ -6,3 +6,9 @@ pages_build_output_dir = "dist"
 STATION_NAME = "SHREE VINAYAKA PETROSOFT FUEL JUNCTION"
 RO_CODE = "IOCL-RO-849201"
 ENVIRONMENT = "production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "petrosoft-d1-db"
+database_id = "6f98c667-6528-4c03-8260-96deddab626a"
+

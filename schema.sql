@@ -115,8 +115,77 @@ CREATE TABLE IF NOT EXISTS lubricants (
   gst_percent REAL DEFAULT 18.0
 );
 
+CREATE TABLE IF NOT EXISTS staff (
+  staff_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  phone TEXT,
+  total_shortage_pending REAL DEFAULT 0.0,
+  is_active INTEGER DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS bank_deposits (
+  deposit_id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  account_no TEXT NOT NULL,
+  amount REAL NOT NULL,
+  deposited_by TEXT NOT NULL,
+  challan_no TEXT NOT NULL,
+  status TEXT DEFAULT 'CLEARED'
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+  expense_id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount REAL NOT NULL,
+  paid_to TEXT NOT NULL,
+  approved_by TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS loyalty_customers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT UNIQUE NOT NULL,
+  vehicle_no TEXT,
+  points INTEGER DEFAULT 0,
+  tier TEXT DEFAULT 'SILVER',
+  total_liters REAL DEFAULT 0.0,
+  last_visit TEXT
+);
+
+CREATE TABLE IF NOT EXISTS automated_alerts (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  recipient TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  status TEXT DEFAULT 'SENT'
+);
+
+CREATE TABLE IF NOT EXISTS calibration_tests (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  nozzle_id TEXT NOT NULL,
+  nozzle_number TEXT NOT NULL,
+  fuel_code TEXT NOT NULL,
+  test_measure_volume_l REAL DEFAULT 5.0,
+  quantity_dispensed_l REAL DEFAULT 5.0,
+  variance_ml REAL DEFAULT 0.0,
+  tolerance_ml REAL DEFAULT 25.0,
+  status TEXT DEFAULT 'PASSED',
+  poured_back_to_tank TEXT NOT NULL,
+  inspector TEXT NOT NULL
+);
+
 -- Indices for Microsecond Edge Query Routing
 CREATE INDEX IF NOT EXISTS idx_txn_shift ON transactions(shift_id);
 CREATE INDEX IF NOT EXISTS idx_txn_nozzle ON transactions(nozzle_id);
 CREATE INDEX IF NOT EXISTS idx_nozzle_tank ON nozzles(tank_id);
 CREATE INDEX IF NOT EXISTS idx_credit_status ON credit_accounts(status);
+CREATE INDEX IF NOT EXISTS idx_loyalty_phone ON loyalty_customers(phone);
+
